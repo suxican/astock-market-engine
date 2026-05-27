@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 3%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 142 72% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 0 0% 80%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 142 50% 15%;
+    --accent-foreground: 142 72% 70%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: 142 72% 50%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* 分析文字样式 */
+.analysis-content h2 {
+  @apply text-lg font-semibold mt-6 mb-3 text-primary;
+}
+
+.analysis-content h3 {
+  @apply text-base font-medium mt-4 mb-2 text-foreground;
+}
+
+.analysis-content p {
+  @apply text-sm leading-relaxed text-muted-foreground mb-2;
+}
+
+.analysis-content ul {
+  @apply list-disc list-inside space-y-1 text-sm text-muted-foreground mb-3;
+}
+
+.analysis-content strong {
+  @apply text-foreground font-medium;
+}
+
+/* 涨跌颜色 */
+.up { @apply text-[#ff4d4f]; }
+.down { @apply text-[#00b578]; }

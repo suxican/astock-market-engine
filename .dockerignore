@@ -1,0 +1,15 @@
+# Docker build context — exclude unnecessary files
+.git
+.gitignore
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+frontend/node_modules/
+frontend/.next/
+*.md
+start.sh
+start.bat
+README.md
+docker/

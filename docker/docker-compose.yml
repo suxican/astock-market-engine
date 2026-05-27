@@ -1,0 +1,44 @@
+# ============================================
+# AStock AI Copilot V2 — 开发环境 (热重载)
+# ============================================
+services:
+  backend:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+    volumes:
+      # 开发模式下挂载源码目录实现热重载
+      - ../backend:/app/backend
+      - ../emotion_cycle_engine:/app/emotion_cycle_engine
+      - ../market_reasoning_engine:/app/market_reasoning_engine
+      - ../review_engine:/app/review_engine
+      - ../dragon_leader_engine:/app/dragon_leader_engine
+      - ../sector_rotation_engine:/app/sector_rotation_engine
+      - ../limit_up_analysis:/app/limit_up_analysis
+      - ../limit_down_analysis:/app/limit_down_analysis
+      - ../data_sources:/app/data_sources
+      - ../rag:/app/rag
+      - ../vector_db:/app/vector_db
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ../frontend:/app
+      # 排除 node_modules 被覆盖
+      - /app/node_modules
+    command: npm run dev
