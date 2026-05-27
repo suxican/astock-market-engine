@@ -1,13 +1,35 @@
-"""数据库持久化服务"""
+"""数据库持久化服务 — SQLite / PostgreSQL 兼容"""
+import time
 from datetime import datetime
+from sqlalchemy.exc import OperationalError
 from backend.database.models import MarketSnapshot, ReviewRecord
 from backend.database.db import SessionLocal
+
+_MAX_RETRIES = 2
+
+
+def _get_session():
+    return SessionLocal()
+
+
+def _safe_commit(db) -> None:
+    """事务提交（带 PG 连接断开重试）"""
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            db.commit()
+            return
+        except OperationalError:
+            if attempt < _MAX_RETRIES:
+                db.rollback()
+                time.sleep(0.2)
+            else:
+                raise
 
 
 def save_market_snapshot(date: str, data: dict) -> bool:
     """保存或更新（upsert）市场快照"""
     try:
-        db = SessionLocal()
+        db = _get_session()
         try:
             existing = db.query(MarketSnapshot).filter(MarketSnapshot.date == date).first()
             if existing:
@@ -17,7 +39,7 @@ def save_market_snapshot(date: str, data: dict) -> bool:
             else:
                 snapshot = MarketSnapshot(date=date, **data)
                 db.add(snapshot)
-            db.commit()
+            _safe_commit(db)
             return True
         finally:
             db.close()
@@ -28,7 +50,7 @@ def save_market_snapshot(date: str, data: dict) -> bool:
 def save_review_record(date: str, review_text: str, emotion_stage: str = "") -> bool:
     """保存或更新复盘记录"""
     try:
-        db = SessionLocal()
+        db = _get_session()
         try:
             existing = db.query(ReviewRecord).filter(ReviewRecord.date == date).first()
             if existing:
@@ -37,7 +59,7 @@ def save_review_record(date: str, review_text: str, emotion_stage: str = "") -> 
             else:
                 record = ReviewRecord(date=date, ai_review_text=review_text, emotion_stage=emotion_stage)
                 db.add(record)
-            db.commit()
+            _safe_commit(db)
             return True
         finally:
             db.close()
@@ -48,7 +70,7 @@ def save_review_record(date: str, review_text: str, emotion_stage: str = "") -> 
 def get_review_history(limit: int = 30) -> list:
     """获取最近 N 条复盘记录"""
     try:
-        db = SessionLocal()
+        db = _get_session()
         try:
             records = (
                 db.query(ReviewRecord)
@@ -74,7 +96,7 @@ def get_review_history(limit: int = 30) -> list:
 def get_snapshot_by_date(date: str) -> dict:
     """获取指定日期的市场快照"""
     try:
-        db = SessionLocal()
+        db = _get_session()
         try:
             s = db.query(MarketSnapshot).filter(MarketSnapshot.date == date).first()
             if s is None:
@@ -98,7 +120,7 @@ def get_snapshot_by_date(date: str) -> dict:
 def get_snapshots_by_dates(dates: list) -> dict:
     """批量获取多个日期的市场快照"""
     try:
-        db = SessionLocal()
+        db = _get_session()
         try:
             snapshots = db.query(MarketSnapshot).filter(MarketSnapshot.date.in_(dates)).all()
             return {s.date: {

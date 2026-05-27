@@ -3,18 +3,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import CORS_ORIGINS
-from backend.routers import stock, analysis
+from backend.routers import stock, analysis, ws as ws_router, auth as auth_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """启动/关闭生命周期管理"""
-    # Startup: 初始化数据库 + 预热 Qdrant
+    # Startup: 初始化数据库 + 预热 Qdrant + 启动 WebSocket 推送
     try:
         from backend.database.db import init_db
         init_db()
         from vector_db.client import get_client
         get_client()
+        from backend.routers.ws import start_market_pusher
+        start_market_pusher()
     except Exception as e:
         print(f"[V7] DB/Vector init: {e}")
     yield
@@ -40,6 +42,8 @@ app.add_middleware(
 # 注册路由
 app.include_router(stock.router)
 app.include_router(analysis.router)
+app.include_router(ws_router.router)
+app.include_router(auth_router.router)
 
 
 @app.get("/")

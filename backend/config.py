@@ -25,7 +25,12 @@ PORT = int(os.getenv("PORT", "8000"))
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 # Database
+#   SQLite（本地开发）: sqlite:///./data/market_memory.db
+#   PostgreSQL（生产）:  postgresql://user:pass@host:5432/market_memory
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/market_memory.db")
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))  # 1h recycle for PG
 
 # RAG Settings
 RAG_ENABLED = os.getenv("RAG_ENABLED", "true").lower() == "true"

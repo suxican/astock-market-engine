@@ -44,6 +44,12 @@ export default function HomePage() {
             <a href="/" className="hover:text-foreground transition-colors">首页</a>
             <a href="/market" className="hover:text-foreground transition-colors">大盘</a>
             <a href="/review" className="hover:text-foreground transition-colors">复盘</a>
+            <a href="/workbench" className="hover:text-foreground transition-colors flex items-center gap-1">
+              <Zap className="w-3 h-3" />
+              工作台
+            </a>
+            <a href="/backtest" className="hover:text-foreground transition-colors">回测</a>
+            <a href="/strategies" className="hover:text-foreground transition-colors">策略</a>
           </nav>
         </div>
       </header>

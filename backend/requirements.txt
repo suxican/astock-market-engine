@@ -11,3 +11,5 @@ openai==1.6.1
 # V7 RAG
 sqlalchemy==2.0.27
 qdrant-client==1.9.1
+# PostgreSQL（生产环境）
+psycopg2-binary>=2.9

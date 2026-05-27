@@ -1,10 +1,27 @@
-"""数据库引擎与会话管理"""
+"""数据库引擎与会话管理 — 支持 SQLite / PostgreSQL"""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from backend.config import DATABASE_URL
+from sqlalchemy.pool import QueuePool, StaticPool
+from backend.config import DATABASE_URL, DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_RECYCLE
 from backend.database.models import Base
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+_is_pg = DATABASE_URL.startswith(("postgresql", "postgres"))
+
+if _is_pg:
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=QueuePool,
+        pool_size=DB_POOL_SIZE,
+        max_overflow=DB_MAX_OVERFLOW,
+        pool_recycle=DB_POOL_RECYCLE,
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

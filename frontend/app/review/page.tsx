@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeft, BarChart3, Loader2, Brain, TrendingUp, TrendingDown, CandlestickChart, Activity, MessageSquareText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import DragonLeaderCard from '@/components/DragonLeaderCard'
 import SectorRotationCard from '@/components/SectorRotationCard'
 import HistoricalComparison from '@/components/HistoricalComparison'
-import { API_BASE } from '@/lib/api'
+import { API_BASE, api } from '@/lib/api'
+import type { MarketScores } from '@/lib/types'
+import { emotionColor, riskColor } from '@/lib/types'
 
 export default function ReviewPage() {
   const router = useRouter()
@@ -17,6 +20,7 @@ export default function ReviewPage() {
   const [dragonLeaders, setDragonLeaders] = useState<any>(null)
   const [sectorRotation, setSectorRotation] = useState<any>(null)
   const [similarDays, setSimilarDays] = useState<any>(null)
+  const [marketScores, setMarketScores] = useState<MarketScores | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -27,12 +31,18 @@ export default function ReviewPage() {
       fetch(`${API_BASE}/api/analysis/sector-rotation`).then(r => r.ok ? r.json() : null),
       fetch(`${API_BASE}/api/analysis/rag/similar-today`).then(r => r.ok ? r.json() : null),
     ])
-      .then(([review, ov, leaders, rotation, similarToday]) => {
+      .then(async ([review, ov, leaders, rotation, similarToday]) => {
         setMarketReview(review)
         setOverview(ov)
         setDragonLeaders(leaders)
         setSectorRotation(rotation)
         setSimilarDays(similarToday?.similar_days || null)
+
+        // V8 结构化评分
+        try {
+          const sc = await api.getMarketScores()
+          setMarketScores(sc)
+        } catch {}
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -151,6 +161,53 @@ export default function ReviewPage() {
               <Card className="border-border/50">
                 <CardContent className="p-6 text-center text-muted-foreground text-sm">
                   今日非交易日或数据获取中
+                </CardContent>
+              </Card>
+            )}
+
+            {/* V8 结构化市场评分 */}
+            {marketScores && (
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm">V8 结构化评分</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="p-3 rounded-lg bg-accent/10">
+                      <div className="text-xs text-muted-foreground mb-1">情绪</div>
+                      <div className="text-xl font-bold" style={{ color: emotionColor(marketScores.emotion.stage) }}>
+                        {marketScores.emotion.score}
+                      </div>
+                      <Badge style={{
+                        background: emotionColor(marketScores.emotion.stage) + '22',
+                        color: emotionColor(marketScores.emotion.stage),
+                        border: 'none'
+                      }} className="text-[10px]">{marketScores.emotion.stage}</Badge>
+                    </div>
+                    <div className="p-3 rounded-lg bg-accent/10">
+                      <div className="text-xs text-muted-foreground mb-1">龙头</div>
+                      <div className="text-xl font-bold text-[#F0883E]">
+                        {marketScores.dragon_intensity.score}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {marketScores.dragon_intensity.high_board_count} 只高标
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-lg bg-accent/10">
+                      <div className="text-xs text-muted-foreground mb-1">风险</div>
+                      <div className="text-xl font-bold" style={{ color: riskColor(marketScores.risk.level) }}>
+                        {marketScores.risk.score}
+                      </div>
+                      <Badge style={{
+                        background: riskColor(marketScores.risk.level) + '22',
+                        color: riskColor(marketScores.risk.level),
+                        border: 'none'
+                      }} className="text-[10px]">{marketScores.risk.level}风险</Badge>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

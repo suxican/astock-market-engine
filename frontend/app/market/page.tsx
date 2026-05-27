@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeft, TrendingUp, TrendingDown, Activity, BarChart3, Loader2, CandlestickChart, Building } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Activity, BarChart3, Loader2, CandlestickChart, Building, Zap, Newspaper } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import DragonLeaderCard from '@/components/DragonLeaderCard'
 import SectorRotationCard from '@/components/SectorRotationCard'
-import { API_BASE } from '@/lib/api'
+import { API_BASE, api } from '@/lib/api'
+import type { MarketScores } from '@/lib/types'
+import { emotionColor, riskColor } from '@/lib/types'
 
 export default function MarketPage() {
   const router = useRouter()
@@ -17,6 +19,8 @@ export default function MarketPage() {
   const [sectorFlow, setSectorFlow] = useState<any[]>([])
   const [dragonLeaders, setDragonLeaders] = useState<any>(null)
   const [sectorRotation, setSectorRotation] = useState<any>(null)
+  const [marketScores, setMarketScores] = useState<MarketScores | null>(null)
+  const [drivers, setDrivers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -40,6 +44,16 @@ export default function MarketPage() {
       }
       if (leaderRes.ok) setDragonLeaders(await leaderRes.json())
       if (rotationRes.ok) setSectorRotation(await rotationRes.json())
+
+      // V8 结构化评分 + 事件驱动因素
+      try {
+        const [sc, drv] = await Promise.all([
+          api.getMarketScores(),
+          fetch(`${API_BASE}/api/analysis/events/drivers`).then(r => r.ok ? r.json() : null),
+        ])
+        if (sc) setMarketScores(sc)
+        if (drv?.drivers) setDrivers(drv.drivers)
+      } catch {}
     } catch (e) {
       console.error('获取数据失败', e)
     } finally {
@@ -155,6 +169,114 @@ export default function MarketPage() {
                         {topBoards.length > 0 ? `${topBoards[0].boards} 板` : '--'}
                       </div>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* V8 结构化市场评分 */}
+            {marketScores && (
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm">V8 结构化评分</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 情绪评分 */}
+                    <div className="p-3 rounded-lg bg-accent/10">
+                      <div className="text-xs text-muted-foreground mb-2">情绪周期</div>
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-xl font-bold" style={{ color: emotionColor(marketScores.emotion.stage) }}>
+                          {marketScores.emotion.score}
+                        </span>
+                        <span className="text-xs text-muted-foreground">/100</span>
+                      </div>
+                      <Badge style={{
+                        background: emotionColor(marketScores.emotion.stage) + '22',
+                        color: emotionColor(marketScores.emotion.stage),
+                        border: 'none'
+                      }}>{marketScores.emotion.stage}</Badge>
+                      {marketScores.emotion.signals?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {marketScores.emotion.signals.slice(0, 4).map((s, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{s}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 龙头强度 */}
+                    <div className="p-3 rounded-lg bg-accent/10">
+                      <div className="text-xs text-muted-foreground mb-2">龙头强度</div>
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-xl font-bold text-[#F0883E]">{marketScores.dragon_intensity.score}</span>
+                        <span className="text-xs text-muted-foreground">/100</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {marketScores.dragon_intensity.high_board_count} 只高标
+                      </div>
+                    </div>
+
+                    {/* 风险评分 */}
+                    <div className="p-3 rounded-lg bg-accent/10">
+                      <div className="text-xs text-muted-foreground mb-2">风险等级</div>
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-xl font-bold" style={{ color: riskColor(marketScores.risk.level) }}>
+                          {marketScores.risk.score}
+                        </span>
+                        <span className="text-xs text-muted-foreground">/100</span>
+                      </div>
+                      <Badge style={{
+                        background: riskColor(marketScores.risk.level) + '22',
+                        color: riskColor(marketScores.risk.level),
+                        border: 'none'
+                      }}>{marketScores.risk.level}风险</Badge>
+                      {marketScores.risk.factors?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {marketScores.risk.factors.slice(0, 3).map((f, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{f}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 今日市场驱动因素 */}
+            {drivers.length > 0 && (
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <Newspaper className="w-4 h-4 text-primary" />
+                    <CardTitle className="text-sm">今日市场驱动因素</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border/50">
+                    {drivers.slice(0, 8).map((d, i) => (
+                      <div key={i} className="px-4 py-3 flex items-start gap-3">
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${
+                          d.importance === 'high' ? 'border-red-400 text-red-400' : 'border-yellow-400 text-yellow-400'
+                        }`}>
+                          {d.importance === 'high' ? '高' : '中'}
+                        </Badge>
+                        <div className="min-w-0">
+                          <p className="text-sm">{d.event}</p>
+                          {d.affected?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {d.affected.map((s: string, j: number) => (
+                                <span key={j} className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{s}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>

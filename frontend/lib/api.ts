@@ -1,14 +1,63 @@
-/**
- * 统一的 API Base URL 配置
- *
- * 优先级：
- *   1. NEXT_PUBLIC_API_BASE_URL（运行/构建时环境变量）
- *   2. 同源 /api 反向代理（线上部署推荐）
- *   3. 兜底 http://127.0.0.1:8000（本地开发默认端口）
- *
- * 修复历史：原 market/review 页面写死 127.0.0.1:8005，与启动脚本的 8000 端口冲突
- * 导致大盘和复盘页面所有请求 ERR_CONNECTION_REFUSED。
- */
+/** 统一 API 配置 + 类型化客户端 */
+
+import type { MarketScores, StockScores, StockScoresQuery } from "./types"
+
+// 优先级：环境变量 > 同源代理 > 本地默认
 export const API_BASE =
-  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
-  'http://127.0.0.1:8005'
+  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
+  "http://127.0.0.1:8000"
+
+async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`${res.status} ${res.statusText}: ${text}`)
+  }
+  return res.json() as Promise<T>
+}
+
+export const api = {
+  // ── V8 结构化评分 ──
+  getMarketScores(): Promise<MarketScores> {
+    return fetchJSON<MarketScores>("/api/analysis/market-scores")
+  },
+
+  getStockScores(query: StockScoresQuery): Promise<StockScores> {
+    return fetchJSON<StockScores>("/api/analysis/stock-scores", {
+      method: "POST",
+      body: JSON.stringify(query),
+    })
+  },
+
+  // ── 盘面端点 ──
+  getMarketReview(): Promise<{
+    market_scores: MarketScores
+    limit_up_count: number
+    limit_down_count: number
+    zhaban_rate: number
+    ai_review: string
+  }> {
+    return fetchJSON("/api/analysis/market-review")
+  },
+
+  getEmotionCycle(): Promise<{
+    emotion_score: number
+    emotion_stage: string
+    confidence: string
+    signals: string[]
+    suggestion: string
+  }> {
+    return fetchJSON("/api/analysis/emotion-cycle")
+  },
+
+  getDragonLeaders(): Promise<Record<string, unknown>> {
+    return fetchJSON("/api/analysis/dragon-leaders")
+  },
+
+  getSectorRotation(): Promise<Record<string, unknown>> {
+    return fetchJSON("/api/analysis/sector-rotation")
+  },
+}

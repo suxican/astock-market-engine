@@ -15,7 +15,10 @@ import KLineChart from '@/components/KLineChart'
 import LimitUpCard from '@/components/LimitUpCard'
 import LimitDownCard from '@/components/LimitDownCard'
 import ExpectationGapCard from '@/components/ExpectationGapCard'
-import { API_BASE } from '@/lib/api'
+import AITooltip from '@/components/AITooltip'
+import { API_BASE, api } from '@/lib/api'
+import type { StockScores } from '@/lib/types'
+import { capitalStageColor, confidenceColor } from '@/lib/types'
 
 export default function StockPage() {
   return (
@@ -67,6 +70,7 @@ function StockPageContent() {
 
   const [inputSymbol, setInputSymbol] = useState(symbol)
   const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [scores, setScores] = useState<StockScores | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [limitUpResult, setLimitUpResult] = useState<any>(null)
@@ -109,6 +113,12 @@ function StockPageContent() {
         data = await fallback.json()
       }
       setResult(data)
+
+      // V8 结构化评分
+      try {
+        const sc = await api.getStockScores({ symbol: code })
+        setScores(sc)
+      } catch { setScores(null) }
 
       // 并发获取涨停/跌停分析
       const [upRes, downRes, gapRes] = await Promise.all([
@@ -233,7 +243,11 @@ function StockPageContent() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h1 className="text-xl font-bold">{result.summary.name}</h1>
+                      <AITooltip symbol={symbol} query="comprehensive">
+                        <h1 className="text-xl font-bold cursor-help hover:text-primary transition-colors">
+                          {result.summary.name}
+                        </h1>
+                      </AITooltip>
                       <span className="text-sm text-muted-foreground">{result.summary.symbol}</span>
                       {result.is_mock_data && (
                         <Badge variant="outline" className="text-amber-500 border-amber-500/40 text-xs">模拟</Badge>
@@ -300,19 +314,20 @@ function StockPageContent() {
             )}
 
             {/* K线图 */}
-            {result.kline_data && result.kline_data.length > 0 && (
-              <Card className="border-border/50 overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <CandlestickChart className="w-4 h-4 text-primary" />
-                    <CardTitle className="text-base">日K线走势</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0 pb-3">
-                  <KLineChart data={result.kline_data} />
-                </CardContent>
-              </Card>
-            )}
+            <KLineChart
+              symbol={symbol}
+              name={result.summary.name}
+              phase={
+                scores?.main_capital?.stage === '主升' ? 'zhupan' :
+                scores?.main_capital?.stage === '吸筹' ? 'xichou' :
+                scores?.main_capital?.stage === '洗盘' ? 'xipan' :
+                scores?.main_capital?.stage === '出货' ? 'chuhuo' : 'unknown'
+              }
+              apiBase="http://127.0.0.1:8000"
+            />
+
+            {/* V8 结构化评分 */}
+            {scores && <ScoreCard scores={scores} />}
 
             <Card className="border-border/50">
               <CardHeader className="pb-3">
@@ -340,6 +355,95 @@ function StockPageContent() {
         )}
       </main>
     </div>
+  )
+}
+
+function ScoreCard({ scores }: { scores: StockScores }) {
+  const { main_capital, technical, composite } = scores
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          <CardTitle className="text-base">V8 结构化评分</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* 综合评分 */}
+        <div className="flex items-center justify-between p-3 rounded-lg bg-accent/20">
+          <span className="text-sm text-muted-foreground">综合评分</span>
+          <span className="text-2xl font-bold" style={{
+            color: composite >= 60 ? '#3FB950' : composite >= 30 ? '#F0883E' : '#F85149'
+          }}>{composite}<span className="text-sm text-muted-foreground">/100</span></span>
+        </div>
+
+        {/* 主力行为 */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground">主力行为</span>
+            <Badge style={{
+              background: capitalStageColor(main_capital.stage) + '22',
+              color: capitalStageColor(main_capital.stage)
+            }}>{main_capital.stage}</Badge>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{
+                width: `${main_capital.score}%`,
+                background: capitalStageColor(main_capital.stage),
+              }} />
+            </div>
+            <span className="text-xs font-mono text-muted-foreground">{main_capital.score}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">{main_capital.advice}</p>
+          {main_capital.factors?.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {main_capital.factors.map((f, i) => (
+                <span key={i} className="px-2 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{f}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 技术面 */}
+        <div>
+          <div className="text-xs text-muted-foreground mb-2">技术面</div>
+          <div className="space-y-2">
+            {[
+              { label: '趋势', score: technical.trend_score, max: 40 },
+              { label: '量能', score: technical.volume_score, max: 30 },
+              { label: '位置', score: technical.position_score, max: 30 },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-8">{item.label}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-[#58A6FF]" style={{
+                    width: `${(item.score / item.max) * 100}%`
+                  }} />
+                </div>
+                <span className="text-xs font-mono text-muted-foreground">{item.score}</span>
+              </div>
+            ))}
+          </div>
+          {technical.factors?.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {technical.factors.map((f, i) => (
+                <span key={i} className="px-2 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">{f}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 置信度 */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>置信度</span>
+          <span className="px-2 py-0.5 rounded" style={{
+            background: confidenceColor(main_capital.confidence) + '22',
+            color: confidenceColor(main_capital.confidence),
+          }}>{main_capital.confidence}</span>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
