@@ -57,6 +57,7 @@ interface AnalysisResult {
   analysis: string
   data_points: number
   kline_data?: KLineRecord[]
+  is_mock_data?: boolean
 }
 
 function StockPageContent() {
@@ -215,6 +216,18 @@ function StockPageContent() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            {result.is_mock_data && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-start gap-2 text-sm">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-500 mb-0.5">数据不可用 — 使用模拟数据</p>
+                  <p className="text-muted-foreground">
+                    当前未能获取到真实行情数据（akshare 请求失败），展示的是系统生成的模拟数据，仅供参考，<strong>不构成任何投资依据</strong>。
+                  </p>
+                </div>
+              </div>
+            )}
+
             <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -222,6 +235,9 @@ function StockPageContent() {
                     <div className="flex items-center gap-2 mb-1">
                       <h1 className="text-xl font-bold">{result.summary.name}</h1>
                       <span className="text-sm text-muted-foreground">{result.summary.symbol}</span>
+                      {result.is_mock_data && (
+                        <Badge variant="outline" className="text-amber-500 border-amber-500/40 text-xs">模拟</Badge>
+                      )}
                     </div>
                     <div className="flex items-baseline gap-3">
                       <span className="text-3xl font-bold tracking-tight">

@@ -15,6 +15,29 @@ from typing import Optional, Dict, Any, List
 import logging
 
 logger = logging.getLogger("market_engine.data")
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    force=True,
+)
+
+# 记录哪些股票在本请求中使用了 mock 数据（避免污染全局状态，每次查询前清空）
+_MOCK_USED_SYMBOLS: set = set()
+_MOCK_LOCK = threading.Lock()
+
+
+def mark_mock_used(symbol: str):
+    with _MOCK_LOCK:
+        _MOCK_USED_SYMBOLS.add(symbol)
+
+
+def pop_mock_used() -> bool:
+    """查询并清除 mock 标记，返回当前是否有任何 symbol 使用了 mock"""
+    with _MOCK_LOCK:
+        if _MOCK_USED_SYMBOLS:
+            _MOCK_USED_SYMBOLS.clear()
+            return True
+        return False
 
 
 # ---------------- 简易 TTL 缓存 ----------------
@@ -47,12 +70,15 @@ def _try_akshare(func, default_return, *args, **kwargs):
         if result is None or (isinstance(result, pd.DataFrame) and result.empty):
             return default_return
         return result
-    except Exception:
+    except Exception as e:
+        logger.warning("akshare 调用失败 (func=%s, symbol=%s, args=%s): %s",
+                       func.__name__, kwargs.get("symbol", ""), str(args), e)
         return default_return
 
 
 def _generate_mock_data(symbol: str, days: int = 120) -> pd.DataFrame:
     """生成模拟数据用于演示/开发"""
+    mark_mock_used(symbol)
     logger.warning("⚠️ 使用模拟数据（非真实行情），symbol=%s", symbol)
     np.random.seed(hash(symbol) % (2**31))
     end = datetime.now()
@@ -88,6 +114,62 @@ def _generate_mock_data(symbol: str, days: int = 120) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
+def _fetch_stock_daily_curl(
+    symbol: str,
+    period: str = "daily",
+    start_date: str = "19700101",
+    end_date: str = "20500101",
+    adjust: str = "",
+) -> pd.DataFrame:
+    """使用 curl_cffi 获取东方财富日K数据（绕过标准 requests 连接问题）
+
+    替代 ak.stock_zh_a_hist，返回相同格式的 DataFrame，列名为中文。
+    """
+    try:
+        from curl_cffi import requests as curl_requests
+
+        market_code = 1 if symbol.startswith("6") else 0
+        adjust_dict = {"qfq": "1", "hfq": "2", "": "0"}
+        period_dict = {"daily": "101", "weekly": "102", "monthly": "103"}
+        url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+        params = {
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
+            "ut": "7eea3edcaed734bea9cbfc24409ed989",
+            "klt": period_dict.get(period, "101"),
+            "fqt": adjust_dict.get(adjust, "0"),
+            "secid": f"{market_code}.{symbol}",
+            "beg": start_date,
+            "end": end_date,
+        }
+        r = curl_requests.get(url, params=params, impersonate="chrome", timeout=15)
+        data_json = r.json()
+        if not (data_json.get("data") and data_json["data"].get("klines")):
+            return pd.DataFrame()
+
+        temp_df = pd.DataFrame(
+            [item.split(",") for item in data_json["data"]["klines"]]
+        )
+        temp_df["股票代码"] = symbol
+        temp_df.columns = [
+            "日期", "开盘", "收盘", "最高", "最低",
+            "成交量", "成交额", "振幅", "涨跌幅", "涨跌额", "换手率",
+            "股票代码",
+        ]
+        for col in ["开盘", "收盘", "最高", "最低", "成交额", "振幅", "涨跌幅", "涨跌额", "换手率"]:
+            temp_df[col] = pd.to_numeric(temp_df[col], errors="coerce")
+        temp_df["成交量"] = pd.to_numeric(temp_df["成交量"], errors="coerce").astype("int64")
+        temp_df["日期"] = pd.to_datetime(temp_df["日期"], errors="coerce").dt.date
+
+        return temp_df[
+            ["日期", "股票代码", "开盘", "收盘", "最高", "最低",
+             "成交量", "成交额", "振幅", "涨跌幅", "涨跌额", "换手率"]
+        ]
+    except Exception as e:
+        logger.warning("curl_cffi 获取行情失败 (symbol=%s): %s", symbol, e)
+        return pd.DataFrame()
+
+
 def get_stock_daily(
     symbol: str,
     start_date: Optional[str] = None,
@@ -100,17 +182,22 @@ def get_stock_daily(
         start_date: 开始日期 "20240101"
         end_date: 结束日期 "20241231"
     """
-    # 尝试获取真实数据，失败则使用模拟数据
-    df = _try_akshare(
-        ak.stock_zh_a_hist,
-        None,
-        symbol=symbol, period="daily",
-        start_date=start_date or (datetime.now() - timedelta(days=365)).strftime("%Y%m%d"),
-        end_date=end_date or datetime.now().strftime("%Y%m%d"),
-        adjust="qfq"
-    )
+    start = start_date or (datetime.now() - timedelta(days=365)).strftime("%Y%m%d")
+    end = end_date or datetime.now().strftime("%Y%m%d")
 
-    if df is None:
+    # 1) 优先用 curl_cffi（绕过 Python requests 连接东方财富 API 的兼容性问题）
+    df = _fetch_stock_daily_curl(symbol, period="daily", start_date=start, end_date=end, adjust="qfq")
+
+    # 2) curl_cffi 也失败时，降级到 akshare（标准 requests）
+    if df is None or df.empty:
+        df = _try_akshare(
+            ak.stock_zh_a_hist, None,
+            symbol=symbol, period="daily",
+            start_date=start, end_date=end, adjust="qfq"
+        )
+
+    # 3) 全部失败，使用模拟数据
+    if df is None or df.empty:
         df = _generate_mock_data(symbol, days=120)
 
     # 统一列名为英文（兼容不同版本的 akshare）
@@ -147,6 +234,7 @@ def get_stock_fund_flow(symbol: str) -> Dict[str, Any]:
         market="sh" if symbol.startswith("6") else "sz"
     )
     if df is None:
+        mark_mock_used(symbol)
         logger.warning("⚠️ 个股资金流向使用模拟数据（非真实数据），symbol=%s", symbol)
         return {
             "date": datetime.now().strftime("%Y-%m-%d"),
@@ -270,6 +358,7 @@ def get_stock_name(symbol: str) -> str:
         "002594": "比亚迪", "601012": "隆基绿能", "000333": "美的集团",
         "600036": "招商银行", "601318": "中国平安", "000001": "平安银行",
         "002415": "海康威视", "600276": "恒瑞医药", "300059": "东方财富",
+        "002115": "三维通信",
     }
     if symbol in name_map:
         return name_map[symbol]

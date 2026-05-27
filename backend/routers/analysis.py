@@ -7,6 +7,7 @@ from backend.services import (
     get_realtime_quote, get_all_limit_up_today,
     get_zhaban_rate, get_top_boards,
     get_limit_up_pool, get_limit_down_pool,
+    pop_mock_used,
 )
 from backend.services.analysis_service import analyze_stock, _local_rule_analysis
 from limit_up_analysis import LimitUpAgent
@@ -74,11 +75,14 @@ def stock_analysis(query: AnalysisQuery):
             "pe": quote.get("PE", 0),
         })
 
+    is_mock = pop_mock_used()
+
     return {
         "summary": summary,
         "analysis": result,
         "data_points": len(recent),
         "kline_data": recent.to_dict(orient="records"),
+        "is_mock_data": is_mock,
     }
 
 
@@ -119,6 +123,8 @@ def local_analysis(query: AnalysisQuery):
         summary["market_cap"] = quote.get("总市值", 0)
         summary["pe"] = quote.get("PE", 0)
 
+    is_mock = pop_mock_used()
+
     return {
         "summary": summary,
         "symbol": symbol,
@@ -126,10 +132,8 @@ def local_analysis(query: AnalysisQuery):
         "analysis": result,
         "data_points": len(recent),
         "kline_data": recent.to_dict(orient="records"),
+        "is_mock_data": is_mock,
     }
-
-
-@router.post("/limit-up")
 def limit_up_analysis(query: AnalysisQuery):
     """个股涨停原因分析"""
     symbol = query.symbol.strip()

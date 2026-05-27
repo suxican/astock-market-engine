@@ -23,9 +23,16 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Claude Code skills (local tools, not part of the project)
+.agents/
+
 # Data
 *.csv
-*.json
+data/*.json
 data/market_memory.db
 data/qdrant_storage/
 !data/.gitkeep
+
+# Generated JSON (not part of the project)
+skills-lock.json
+tmp*.json
