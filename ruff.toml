@@ -1,0 +1,37 @@
+# AStock 市场认知引擎 — ruff 配置
+target-version = "py310"
+line-length = 120
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long
+    "E402",  # module import not at top (FastAPI)
+    "E701",  # multiple statements on one line (compact scoring)
+    "E702",  # multiple statements semicolon (compact scoring)
+    "E741",  # ambiguous variable name (math notation in scoring)
+    "B008",  # function call in default argument (FastAPI Depends)
+    "B904",  # raise without from (acceptable in routers)
+    "B007",  # unused loop variable
+    "F841",  # unused variable (minor)
+]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"backend/services/analysis_service.py" = ["F401"]
+
+[lint.isort]
+known-first-party = ["backend", "vector_db", "rag", "emotion_cycle_engine", "market_reasoning_engine", "review_engine", "dragon_leader_engine", "sector_rotation_engine", "limit_up_analysis", "limit_down_analysis"]
+
+[format]
+quote-style = "single"
+indent-style = "space"
+
+

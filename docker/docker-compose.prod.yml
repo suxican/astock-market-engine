@@ -1,20 +1,21 @@
-# ============================================
-# AStock AI Copilot V2 — 生产环境 (Nginx + 多实例)
-# ============================================
+# AStock 市场认知引擎 — 生产环境 (Nginx + 多实例)
 services:
   backend:
     build:
       context: ../
       dockerfile: docker/Dockerfile.backend
     expose:
-      - "8000"
+      - "8005"
     environment:
       - AI_PROVIDER=${AI_PROVIDER:-openai}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost}
+      - PORT=8005
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -28,7 +29,7 @@ services:
     depends_on:
       - backend
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8005
     restart: unless-stopped
 
   nginx:

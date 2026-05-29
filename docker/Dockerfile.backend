@@ -1,24 +1,18 @@
-# ============================================
-# AStock AI Copilot V2 — Backend (Production)
-# ============================================
+# AStock 市场认知引擎 — Backend (Production)
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# 仅复制依赖文件做缓存层
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ============================================
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# 从 builder stage 复制已安装的依赖
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# 复制所有 Python 模块（后端 + 各引擎）
 COPY backend/ ./backend/
 COPY emotion_cycle_engine/ ./emotion_cycle_engine/
 COPY market_reasoning_engine/ ./market_reasoning_engine/
@@ -31,7 +25,6 @@ COPY data_sources/ ./data_sources/
 COPY rag/ ./rag/
 COPY vector_db/ ./vector_db/
 
-EXPOSE 8000
+EXPOSE 8005
 
-# 生产模式：多 worker + 无 reload
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8005", "--workers", "2"]

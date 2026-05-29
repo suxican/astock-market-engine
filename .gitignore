@@ -33,6 +33,13 @@ data/market_memory.db
 data/qdrant_storage/
 !data/.gitkeep
 
+# Logs
+*.log
+data/*.log
+
 # Generated JSON (not part of the project)
 skills-lock.json
 tmp*.json
+
+# Windows artifacts
+$null

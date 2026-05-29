@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title AStock AI Copilot V2 - 市场认知引擎
+title AStock 市场认知引擎
 
 echo ============================================
-echo   AStock AI Copilot V2 - 市场认知引擎
+echo   AStock 市场认知引擎
 echo ============================================
 echo.
 
@@ -61,14 +61,13 @@ if not exist node_modules (
 echo [OK] 前端依赖安装完成
 echo.
 
-:: 启动后端（新窗口，reload 模式）
-:: 必须从项目根目录启动 uvicorn，否则 backend.main 模块无法被发现。
+:: 启动后端
 echo [3/4] 启动后端服务...
 cd /d "%ROOT_DIR%"
 start "AStock-Backend" cmd /c "title AStock-Backend && cd /d %ROOT_DIR% && uvicorn backend.main:app --host 127.0.0.1 --port 8005"
 timeout /t 4 /nobreak >nul
 
-:: 启动前端（新窗口，dev 模式）
+:: 启动前端
 echo [4/4] 启动前端服务...
 cd /d "%ROOT_DIR%frontend"
 start "AStock-Frontend" cmd /c "title AStock-Frontend && npm run dev"
