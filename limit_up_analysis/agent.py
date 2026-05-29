@@ -3,12 +3,15 @@
 基于文档第五章规则，识别涨停背后的真正原因：
 政策催化、资金驱动、情绪炒作、龙头带动、基本面驱动
 """
-from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import Any
+
 from backend.services import (
-    get_stock_daily, get_stock_fund_flow, get_stock_name,
-    get_realtime_quote, get_limit_up_pool, get_lhb_detail,
-    get_sector_fund_flow
+    get_lhb_detail,
+    get_limit_up_pool,
+    get_sector_fund_flow,
+    get_stock_fund_flow,
+    get_stock_name,
 )
 
 
@@ -29,7 +32,7 @@ class LimitUpAgent:
         "光大证券": "光大系",
     }
 
-    def analyze(self, symbol: str) -> Dict[str, Any]:
+    def analyze(self, symbol: str) -> dict[str, Any]:
         """分析个股涨停原因"""
         # 获取当日涨停池
         pool = get_limit_up_pool()
@@ -108,7 +111,7 @@ class LimitUpAgent:
         self, symbol, stock_name, board_count, zhaban_count,
         fengdan_amount, last_fengban_time, industry,
         turnover, fengcheng_ratio, lhb, sector_info, fund_flow,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """多条件打分判定涨停类型"""
         scores = {
             "政策催化": 0,
@@ -209,10 +212,10 @@ class LimitUpAgent:
         # 生成描述
         descriptions = {
             "政策催化": f"该股涨停属于**政策催化型**。受益于{industry}板块的政策利好，资金抢筹明显，",
-            "资金驱动": f"该股涨停属于**资金驱动型**。大单资金持续买入推动涨停，",
-            "情绪炒作": f"该股涨停属于**情绪炒作型**。市场情绪高涨，短线资金接力推动封板，",
+            "资金驱动": "该股涨停属于**资金驱动型**。大单资金持续买入推动涨停，",
+            "情绪炒作": "该股涨停属于**情绪炒作型**。市场情绪高涨，短线资金接力推动封板，",
             "龙头带动": f"该股涨停属于**龙头带动型**。作为{industry}板块龙头，带动效应显著，",
-            "基本面驱动": f"该股涨停属于**基本面驱动型**。有业绩/订单/重组等硬基本面支撑，",
+            "基本面驱动": "该股涨停属于**基本面驱动型**。有业绩/订单/重组等硬基本面支撑，",
         }
 
         desc = descriptions.get(best, "该股今日涨停，")
@@ -237,7 +240,7 @@ class LimitUpAgent:
             "all_scores": {k: round(v, 2) for k, v in scores.items()},
         }
 
-    def _get_lhb_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+    def _get_lhb_info(self, symbol: str) -> dict[str, Any] | None:
         """获取龙虎榜信息"""
         today = datetime.now().strftime("%Y%m%d")
         df = get_lhb_detail(today)
@@ -275,7 +278,7 @@ class LimitUpAgent:
 
         return result
 
-    def _get_sector_info(self, industry: str) -> Optional[Dict[str, Any]]:
+    def _get_sector_info(self, industry: str) -> dict[str, Any] | None:
         """获取行业板块资金流向"""
         if not industry:
             return None
@@ -305,7 +308,7 @@ class LimitUpAgent:
         except (ValueError, TypeError):
             return 0
 
-    def _no_data_result(self, reason: str) -> Dict[str, Any]:
+    def _no_data_result(self, reason: str) -> dict[str, Any]:
         return {
             "is_limit_up": False,
             "type": None,

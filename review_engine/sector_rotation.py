@@ -2,11 +2,12 @@
 
 分析板块资金流向，判断哪些板块加强、哪些退潮。
 """
-from typing import List, Dict, Any
+from typing import Any
+
 from backend.services import get_sector_fund_flow
 
 
-def analyze_sector_rotation() -> Dict[str, Any]:
+def analyze_sector_rotation() -> dict[str, Any]:
     """分析板块轮动情况"""
     df = get_sector_fund_flow()
     if df is None or df.empty:

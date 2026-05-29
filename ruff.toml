@@ -1,6 +1,13 @@
 # AStock 市场认知引擎 — ruff 配置
 target-version = "py310"
 line-length = 120
+exclude = [
+    ".claude",
+    ".agents",
+    "node_modules",
+    "__pycache__",
+    "*.pyc",
+]
 
 [lint]
 select = [
@@ -33,5 +40,3 @@ known-first-party = ["backend", "vector_db", "rag", "emotion_cycle_engine", "mar
 [format]
 quote-style = "single"
 indent-style = "space"
-
-

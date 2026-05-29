@@ -1,5 +1,4 @@
 """降级路径和本地规则分析测试"""
-import pytest
 import pandas as pd
 
 

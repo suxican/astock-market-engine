@@ -2,21 +2,23 @@
 
 提供历史相似行情检索、Prompt 增强注入、复盘持久化。
 """
-from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime, timezone
+from typing import Any
 
+from backend.config import RAG_SIMILAR_DAYS_COUNT
 from vector_db.client import (
-    build_market_vector, save_market_vector, save_review_vector,
+    build_market_vector,
+    save_market_vector,
+    save_review_vector,
     search_similar_market,
 )
-from backend.config import RAG_SIMILAR_DAYS_COUNT
 
 
 def retrieve_similar_market_days(
     market_data: dict,
     top_k: int = None,
     exclude_date: str = None,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """检索与当前市场状态相似的历史交易日"""
     if top_k is None:
         top_k = RAG_SIMILAR_DAYS_COUNT
@@ -32,7 +34,7 @@ def retrieve_similar_market_days(
     return search_similar_market(vector, top_k=top_k, exclude_date=exclude_date)
 
 
-def inject_similar_days_context(prompt: str, similar_days: List[Dict[str, Any]]) -> str:
+def inject_similar_days_context(prompt: str, similar_days: list[dict[str, Any]]) -> str:
     """在 prompt 中插入历史相似日参考"""
     if not similar_days:
         return prompt
@@ -75,7 +77,7 @@ class ReviewEnhancer:
     def __init__(self):
         self.today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    def enhance_review_prompt(self, market_data: dict, original_prompt: str) -> Tuple[str, List[Dict]]:
+    def enhance_review_prompt(self, market_data: dict, original_prompt: str) -> tuple[str, list[dict]]:
         """增强复盘 prompt
 
         Returns:
@@ -91,7 +93,7 @@ class ReviewEnhancer:
         review_text: str,
         market_data: dict,
         emotion_stage: str = "",
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """持久化复盘结果到 Qdrant + SQLite
 
         Returns:

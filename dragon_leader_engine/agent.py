@@ -2,18 +2,21 @@
 
 识别全市场龙头股，包括总龙头、板块龙头、连板高标、日内龙头。
 """
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any
+
 import pandas as pd
+
 from backend.services import (
-    get_limit_up_pool, get_realtime_quote_map,
+    get_limit_up_pool,
+    get_realtime_quote_map,
 )
 
 
 class DragonLeaderAgent:
     """全市场龙头股识别器"""
 
-    def analyze(self, market: str = "all") -> Dict[str, Any]:
+    def analyze(self, market: str = "all") -> dict[str, Any]:
         """分析全市场龙头股
 
         Returns:
@@ -72,7 +75,7 @@ class DragonLeaderAgent:
             },
         }
 
-    def _parse_candidates(self, pool: pd.DataFrame) -> List[Dict[str, Any]]:
+    def _parse_candidates(self, pool: pd.DataFrame) -> list[dict[str, Any]]:
         """从涨停池解析候选股
 
         优化：先收集所有候选 symbol，再用 get_realtime_quote_map 一次性查询，
@@ -116,7 +119,7 @@ class DragonLeaderAgent:
             candidates.append(r)
         return candidates
 
-    def _count_sector_stocks(self, candidates: List[Dict]) -> Dict[str, int]:
+    def _count_sector_stocks(self, candidates: list[dict]) -> dict[str, int]:
         """统计各行业涨停股数"""
         counts = {}
         for c in candidates:
@@ -125,7 +128,7 @@ class DragonLeaderAgent:
                 counts[ind] = counts.get(ind, 0) + 1
         return counts
 
-    def _score_stock(self, stock: Dict, sector_counts: Dict[str, int]) -> tuple:
+    def _score_stock(self, stock: dict, sector_counts: dict[str, int]) -> tuple:
         """多维度评分"""
         details = {}
         total = 0.0
@@ -198,7 +201,7 @@ class DragonLeaderAgent:
         except (ValueError, AttributeError):
             return 0.3
 
-    def _find_sector_leaders(self, scored: List[Dict]) -> List[Dict]:
+    def _find_sector_leaders(self, scored: list[dict]) -> list[dict]:
         """各行业最高分作为板块龙头"""
         seen = {}
         for s in scored:
@@ -209,7 +212,7 @@ class DragonLeaderAgent:
                 seen[ind] = s
         return list(seen.values())
 
-    def _find_日内龙头(self, candidates: List[Dict]) -> Optional[Dict]:
+    def _find_日内龙头(self, candidates: list[dict]) -> dict | None:
         """首次封板最早的票"""
         valid = [c for c in candidates if c.get("first_time") and c["first_time"] != "nan"]
         if not valid:
@@ -223,7 +226,7 @@ class DragonLeaderAgent:
         except (ValueError, TypeError):
             return 0.0
 
-    def _empty_result(self, reason: str) -> Dict[str, Any]:
+    def _empty_result(self, reason: str) -> dict[str, Any]:
         return {
             "leaders": [],
             "top_leader": None,

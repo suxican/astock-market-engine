@@ -1,5 +1,4 @@
 """输入校验测试"""
-import pytest
 
 
 class TestStockCodeValidation:

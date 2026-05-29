@@ -6,10 +6,11 @@
 
 所有函数均包裹 try/except，失败时返回空值，永不抛异常。
 """
-from typing import List, Dict, Any, Optional
-import uuid
-import numpy as np
 import hashlib
+import uuid
+from typing import Any
+
+import numpy as np
 
 from backend.config import RAG_QDRANT_PATH
 
@@ -24,9 +25,9 @@ def get_client():
     global _qdrant_client
     if _qdrant_client is None:
         try:
-            from qdrant_client import QdrantClient
-            from qdrant_client.http import models
             import os
+
+            from qdrant_client import QdrantClient
             os.makedirs(RAG_QDRANT_PATH, exist_ok=True)
             _qdrant_client = QdrantClient(path=RAG_QDRANT_PATH)
             _ensure_collections(_qdrant_client)
@@ -52,14 +53,15 @@ def _ensure_collections(client):
         )
 
 
-def embed_text(text: str) -> List[float]:
+def embed_text(text: str) -> list[float]:
     """将文本转为 1536 维向量
 
     优先使用 OpenAI text-embedding-3-small，无 API key 时使用 hash fallback。
     """
     try:
         from openai import OpenAI
-        from backend.config import OPENAI_API_KEY, OPENAI_API_BASE
+
+        from backend.config import OPENAI_API_BASE, OPENAI_API_KEY
         if OPENAI_API_KEY:
             kwargs = {"api_key": OPENAI_API_KEY}
             if OPENAI_API_BASE:
@@ -77,7 +79,7 @@ def embed_text(text: str) -> List[float]:
     return _fallback_embed(text)
 
 
-def _fallback_embed(text: str, dim: int = 1536) -> List[float]:
+def _fallback_embed(text: str, dim: int = 1536) -> list[float]:
     """无 API key 时的确定性嵌入
 
     将文本的每个词哈希到向量维度上累加，保证相同文本产生相同向量。
@@ -102,7 +104,7 @@ def build_market_vector(
     board_height: int = 0,
     index_change: float = 0.0,
     up_down_ratio: float = 0.0,
-) -> List[float]:
+) -> list[float]:
     """构建 6 维市场状态向量，L2 归一化"""
     vec = np.array([
         min(limit_up_count / 100, 1.0),
@@ -123,7 +125,7 @@ def _date_to_uuid(date: str, prefix: str = "market") -> str:
     return str(uuid.uuid5(_UUID_NS, f"{prefix}_{date}"))
 
 
-def save_market_vector(date: str, vector: List[float], payload: dict) -> bool:
+def save_market_vector(date: str, vector: list[float], payload: dict) -> bool:
     """保存市场状态向量到 Qdrant"""
     try:
         client = get_client()
@@ -164,7 +166,7 @@ def save_review_vector(date: str, review_text: str, payload: dict = None) -> boo
         return False
 
 
-def search_similar_market(vector: List[float], top_k: int = 5, exclude_date: str = None) -> List[Dict[str, Any]]:
+def search_similar_market(vector: list[float], top_k: int = 5, exclude_date: str = None) -> list[dict[str, Any]]:
     """搜索相似市场状态日"""
     try:
         client = get_client()
@@ -196,7 +198,7 @@ def search_similar_market(vector: List[float], top_k: int = 5, exclude_date: str
         return []
 
 
-def search_similar_reviews(text: str, top_k: int = 3) -> List[Dict[str, Any]]:
+def search_similar_reviews(text: str, top_k: int = 3) -> list[dict[str, Any]]:
     """搜索相似语义的复盘记录"""
     try:
         vector = embed_text(text)

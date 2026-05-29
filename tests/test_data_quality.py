@@ -1,10 +1,9 @@
 """数据质量层测试"""
-import pytest
 
 
 class TestDataSource:
     def test_source_confidence_ordering(self):
-        from backend.services.data_quality import DataSource, SOURCE_CONFIDENCE
+        from backend.services.data_quality import SOURCE_CONFIDENCE, DataSource
         assert SOURCE_CONFIDENCE[DataSource.SINA] > SOURCE_CONFIDENCE[DataSource.AKSHARE]
         assert SOURCE_CONFIDENCE[DataSource.AKSHARE] > SOURCE_CONFIDENCE[DataSource.MOCK]
         assert SOURCE_CONFIDENCE[DataSource.MOCK] > SOURCE_CONFIDENCE[DataSource.DEFAULT]

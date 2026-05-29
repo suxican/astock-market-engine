@@ -1,5 +1,4 @@
 """认证模块测试"""
-import pytest
 
 
 class TestPasswordHashing:

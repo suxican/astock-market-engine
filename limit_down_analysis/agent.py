@@ -3,18 +3,20 @@
 基于文档第六章规则，识别跌停背后的真正原因：
 公司暴雷、主力出货、板块退潮、情绪崩塌、高位补跌、流动性危机
 """
-from typing import Dict, Any, Optional
+from typing import Any
+
 from backend.services import (
-    get_stock_daily, get_stock_fund_flow, get_stock_name,
-    get_limit_down_pool, get_sector_fund_flow
+    get_limit_down_pool,
+    get_stock_daily,
+    get_stock_fund_flow,
+    get_stock_name,
 )
-import pandas as pd
 
 
 class LimitDownAgent:
     """跌停原因分析器"""
 
-    def analyze(self, symbol: str) -> Dict[str, Any]:
+    def analyze(self, symbol: str) -> dict[str, Any]:
         """分析个股跌停原因"""
         # 获取当日跌停池
         pool = get_limit_down_pool()
@@ -87,7 +89,7 @@ class LimitDownAgent:
         result["is_limit_down"] = True
         return result
 
-    def _calc_cumulative_gain_from_df(self, df) -> Optional[float]:
+    def _calc_cumulative_gain_from_df(self, df) -> float | None:
         """基于已获取的 K 线 DataFrame 计算近 60 日累计涨幅，避免重复抓取"""
         try:
             if df is None or len(df) < 2 or not hasattr(df, "tail"):
@@ -104,7 +106,7 @@ class LimitDownAgent:
     def _score_and_classify(
         self, stock_name, symbol, turnover, kaiban_count,
         fengdan_amount, industry, sector_info, fund_flow, cum_gain,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """多条件打分判定跌停类型"""
         scores = {
             "公司暴雷": 0,
@@ -136,7 +138,7 @@ class LimitDownAgent:
         # --- 情绪崩塌 ---
         if kaiban_count > 2:
             scores["情绪崩塌"] += 1
-            reasons["情绪崩塌"].append(f"多次开板，多空分歧极大")
+            reasons["情绪崩塌"].append("多次开板，多空分歧极大")
         if turnover > 10:
             scores["情绪崩塌"] += 1
             reasons["情绪崩塌"].append("超高换手，恐慌出逃")
@@ -232,7 +234,7 @@ class LimitDownAgent:
             "all_scores": {k: round(v, 2) for k, v in scores.items()},
         }
 
-    def _get_sector_info(self, industry: str) -> Optional[Dict[str, Any]]:
+    def _get_sector_info(self, industry: str) -> dict[str, Any] | None:
         """获取行业板块资金流向"""
         if not industry:
             return None
@@ -266,7 +268,7 @@ class LimitDownAgent:
         except (ValueError, TypeError):
             return 0
 
-    def _no_data_result(self, reason: str) -> Dict[str, Any]:
+    def _no_data_result(self, reason: str) -> dict[str, Any]:
         return {
             "is_limit_down": False,
             "type": None,

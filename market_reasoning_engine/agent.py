@@ -2,12 +2,15 @@
 
 解释"利好不涨、利空不跌"等6种市场反常现象背后的因果逻辑。
 """
-from typing import Dict, Any, Optional
+from typing import Any
+
 from backend.services import (
-    get_stock_daily, get_stock_fund_flow, get_stock_name,
-    get_stock_financial, get_realtime_quote, get_sector_fund_flow
+    get_realtime_quote,
+    get_stock_daily,
+    get_stock_financial,
+    get_stock_fund_flow,
+    get_stock_name,
 )
-import pandas as pd
 
 
 class ExpectationGapAgent:
@@ -18,7 +21,7 @@ class ExpectationGapAgent:
         "放量涨次日跌", "缩量上涨", "高位放量滞涨",
     ]
 
-    def analyze(self, symbol: str) -> Dict[str, Any]:
+    def analyze(self, symbol: str) -> dict[str, Any]:
         """分析个股是否存在预期差现象"""
         df = get_stock_daily(symbol)
         if df is None or len(df) < 5:
@@ -273,7 +276,7 @@ class ExpectationGapAgent:
             desc += " 信号尚不充分，需结合更多信息判断。"
         return desc
 
-    def _build_summary(self, pct, vol_ratio, main_flow, cum_gain) -> Dict[str, Any]:
+    def _build_summary(self, pct, vol_ratio, main_flow, cum_gain) -> dict[str, Any]:
         return {
             "今日涨跌幅": f"{pct:+.2f}%",
             "量能比(20日均)": f"{vol_ratio:.2f}",
@@ -281,7 +284,7 @@ class ExpectationGapAgent:
             "近60日涨幅": f"{cum_gain:.1f}%" if cum_gain is not None else "N/A",
         }
 
-    def _calc_cum_gain(self, df, days: int) -> Optional[float]:
+    def _calc_cum_gain(self, df, days: int) -> float | None:
         if df is None or len(df) < 2:
             return None
         recent = df.tail(min(days, len(df)))
@@ -289,7 +292,7 @@ class ExpectationGapAgent:
             return None
         return (float(recent.iloc[-1]["close"]) / float(recent.iloc[0]["close"]) - 1) * 100
 
-    def _empty_result(self, reason: str) -> Dict[str, Any]:
+    def _empty_result(self, reason: str) -> dict[str, Any]:
         return {
             "has_gap": False,
             "gap_type": None,

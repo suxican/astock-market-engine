@@ -2,15 +2,15 @@
 
 双维度分析（行业+概念板块），状态分类（加强/持续/退潮/反弹），涨停分布统计。
 """
-from typing import Dict, Any, List
-import pandas as pd
-from backend.services import get_sector_fund_flow_by_type, get_limit_up_pool
+from typing import Any
+
+from backend.services import get_limit_up_pool, get_sector_fund_flow_by_type
 
 
 class SectorRotationAgent:
     """板块轮动分析器"""
 
-    def analyze(self) -> Dict[str, Any]:
+    def analyze(self) -> dict[str, Any]:
         """分析全市场板块轮动
 
         Returns:
@@ -40,7 +40,7 @@ class SectorRotationAgent:
             "最强板块涨停数": max([b["涨停数"] for b in board_dist], default=0),
         }
 
-    def _analyze_type(self, sector_type: str) -> Dict[str, Any]:
+    def _analyze_type(self, sector_type: str) -> dict[str, Any]:
         """分析一类板块（行业/概念）"""
         df = get_sector_fund_flow_by_type(sector_type)
         if df is None or df.empty:
@@ -77,7 +77,7 @@ class SectorRotationAgent:
 
         return result
 
-    def _analyze_board_distribution(self) -> List[Dict]:
+    def _analyze_board_distribution(self) -> list[dict]:
         """统计各行业涨停分布"""
         pool = get_limit_up_pool()
         if pool.empty:

@@ -2,14 +2,17 @@
 
 AI 驱动的市场复盘，分析主线、板块轮动、情绪变化。
 """
-from typing import Dict, Any, Optional
 from datetime import datetime
-from backend.services import (
-    get_all_limit_up_today, get_zhaban_rate, get_top_boards,
-    get_market_overview, get_limit_down_pool,
-)
-from backend.services.analysis_service import analyze_stock, _build_analysis_prompt
+from typing import Any
+
 from backend.agents.emotion_cycle_agent import EmotionCycleAgent
+from backend.services import (
+    get_all_limit_up_today,
+    get_limit_down_pool,
+    get_market_overview,
+    get_top_boards,
+    get_zhaban_rate,
+)
 from review_engine.sector_rotation import analyze_sector_rotation
 
 
@@ -19,7 +22,7 @@ class MarketReviewAgent:
     def __init__(self):
         self.emotion_agent = EmotionCycleAgent()
 
-    def generate_review(self) -> Dict[str, Any]:
+    def generate_review(self) -> dict[str, Any]:
         """生成 AI 复盘文本"""
         # 收集市场数据
         overview = get_market_overview()
@@ -159,8 +162,8 @@ class MarketReviewAgent:
     def _call_ai_review(self, prompt: str) -> str:
         """调用 AI 生成复盘（传入完整 prompt，已被 RAG 增强）"""
         try:
-            from backend.services.analysis_service import _call_claude, _call_openai
             from backend.config import AI_PROVIDER, CLAUDE_API_KEY, OPENAI_API_KEY
+            from backend.services.analysis_service import _call_claude, _call_openai
 
             if AI_PROVIDER == "claude" and CLAUDE_API_KEY:
                 return _call_claude(prompt)
