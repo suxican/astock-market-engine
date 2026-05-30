@@ -22,6 +22,11 @@ import { useSystemStatus } from '@/components/SystemStatusProvider'
 import type { MarketScores } from '@/lib/types'
 import { emotionColor, riskColor } from '@/lib/types'
 
+import EarningEffectDashboard from '@/components/EarningEffectDashboard'
+import MarketHealthCard from '@/components/MarketHealthCard'
+import MarketBreadthCard from '@/components/MarketBreadthCard'
+import ThemeScoresCard from '@/components/ThemeScoresCard'
+import DataQualityDashboard from '@/components/DataQualityDashboard'
 export default function MarketPage() {
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
@@ -289,6 +294,19 @@ export default function MarketPage() {
               </Card>
             )}
 
+            {/* V3: 市场宽度 + 主线识别 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <MarketBreadthCard />
+              <ThemeScoresCard />
+            </div>
+
+            {/* V3: 赚钱效应 + 综合健康分 + 数据质量 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <EarningEffectDashboard />
+              <MarketHealthCard />
+            </div>
+            <DataQualityDashboard />
+
             {/* 板块资金流向 */}
             {sectorFlow.length > 0 && (
               <Card className="border-border rounded">
@@ -334,3 +352,6 @@ export default function MarketPage() {
     </div>
   )
 }
+
+
+

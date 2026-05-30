@@ -292,13 +292,13 @@ function StockPageContent() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <AnalysisView text={result.analysis} />
+                  <AnalysisView text={typeof (result as any).analysis === "string" ? (result as any).analysis : (result as any).analysis?.analysis || ""} />
                 </CardContent>
               </Card>
             ) : (
               <>
                 {scores && <ScoreCard scores={scores} />}
-                <AnalysisView text={result.analysis} />
+                <AnalysisView text={typeof (result as any).analysis === "string" ? (result as any).analysis : (result as any).analysis?.analysis || ""} />
               </>
             )}
 
@@ -415,6 +415,8 @@ function ScoreCard({ scores }: { scores: StockScores }) {
     </Card>
   )
 }
+
+
 
 
 

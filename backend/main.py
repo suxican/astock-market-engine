@@ -96,6 +96,29 @@ async def log_requests(request: Request, call_next):
         logger.info("%s %s → %d", request.method, request.url.path, response.status_code)
     return response
 
+
+# ── 数据质量注入辅助函数 ──
+import json as _json
+
+def _inject_dq(data: dict) -> dict:
+    """向响应 dict 注入 data_quality 字段（如果缺失）"""
+    if not isinstance(data, dict) or "data_quality" in data:
+        return data
+    from backend.services.data_quality import get_system_quality, classify_system_status
+    q = get_system_quality()
+    if q is not None:
+        data["data_quality"] = q.to_dict()
+        data["data_quality"]["status"] = classify_system_status(q)
+    else:
+        data["data_quality"] = {
+            "source": "unknown",
+            "confidence": 0.5,
+            "realtime": False,
+            "fallback_used": False,
+            "status": "unknown",
+        }
+    return data
+
 # ── CORS ──
 app.add_middleware(
     CORSMiddleware,
@@ -121,7 +144,7 @@ def root():
     return {
         "service": "AStock 市场认知引擎",
         "status": "running",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "docs": "/docs",
     }
 
@@ -136,3 +159,7 @@ if __name__ == "__main__":
 
     from backend.config import HOST, PORT
     uvicorn.run("backend.main:app", host=HOST, port=PORT, reload=True)
+
+
+
+

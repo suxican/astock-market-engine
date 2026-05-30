@@ -1,4 +1,4 @@
-# AStock AI Copilot V2 — 市场认知引擎
+# AStock AI Copilot V3 — 市场认知引擎
 
 > 真正理解 A 股市场行为逻辑的 AI 认知系统。不是自动交易机器人，而是帮你读懂市场的 AI 分析助手。
 
@@ -34,6 +34,7 @@
 │   │   ├── quote_data.py            #   实时行情 + 大盘指数
 │   │   ├── limit_data.py            #   涨停/跌停池 + 龙虎榜
 │   │   ├── flow_data.py             #   资金流 (个股+板块)
+│   │   ├── market_breadth.py        #   V3 市场宽度指标
 │   │   └── data_quality.py          #   数据质量跟踪 + 置信度评分
 │   ├── agents/                       # 分析 Agent
 │   │   ├── stock_analysis_agent.py  #   综合分析编排
@@ -107,14 +108,26 @@
 - 无需任何 API Key 即可运行: 使用本地规则引擎 + mock 数据
 - 数据质量问题自动降级: 置信度 < 0.6 时跳过 LLM 分析
 
-### 2. Agent + Score Engine (V8)
+### 2. V3 统一评分架构
 
 - **Feature Engine**: 一次性计算市场/个股特征, 消除 Agent 间的 N+1 问题
-- **Score Engine**: 纯规则驱动的 0-100 结构化评分 (情绪/主力/技术/风险)
-- **Agents**: 封装业务逻辑 (主力行为, 情绪周期, 龙头识别等)
-- 评分结果注入 LLM 提示, 引导更一致的分析输出
+- **Score Engine**: 纯规则驱动的 0-100 结构化评分
+  - 情绪周期 (6阶段多维加权)
+  - 龙头强度 (8维评分: 连板/封板/封单比/板块/时间/换手/排名/舆情)
+  - 风险等级 (动态权重)
+  - **赚钱效应** (溢价/存活/龙头/跌停/回封 5维)
+  - **主线识别** (涨停数/资金/龙头/集中度 4维)
+  - **市场健康分** (情绪/龙头/风险/赚钱效应/事件 五维加权)
+- **MarketBreath**: 涨跌家数/涨跌比/强弱分布
+- **EventEngine V2**: 事件聚类 + 影响衰减 + 综合评分
+- **DataQuality 信封**: 所有分析 API 自动注入数据质量元信息
+- **Agents**: 封装业务逻辑, 消费预计算评分
+- 收敛路径: FeatureEngine → ScoreEngine → AI Explain Layer
 
-### 3. 多源数据回退
+### 3. DataQuality 信封
+所有 `/api/analysis/*` 端点通过中间件自动注入 `data_quality` 字段，包含 `source`、`confidence`、`status`。置信度 < 0.6 时禁止 AI 金融推理。
+
+### 4. 多源数据回退
 
 ```
 Tencent HTTP → Sina HTTP → curl_cffi(EastMoney) → akshare → Mock数据
@@ -122,13 +135,13 @@ Tencent HTTP → Sina HTTP → curl_cffi(EastMoney) → akshare → Mock数据
 
 每层带有 DataQuality 置信度标记, 供降级决策使用。
 
-### 4. RAG 增强复盘
+### 5. RAG 增强复盘
 
 - 每日市场状态 → 6维向量存入 Qdrant
 - 生成复盘时检索相似历史交易日 → 注入 LLM 提示
 - 结果双写: Qdrant (向量检索) + SQLite (结构化查询)
 
-### 5. 安全架构
+### 6. 安全架构
 
 - JWT 认证 (HMAC-SHA256 + PBKDF2 密码哈希)
 - 速率限制 (120 req/min)
@@ -179,3 +192,4 @@ cd docker && docker-compose -f docker-compose.prod.yml up -d
 - **API 信封**: 统一 `{success, data, error, meta}` 响应格式
 - **配置即代码**: 所有配置通过环境变量 + config.py 管理
 - **错误处理**: 全局异常处理器 + 层级别错误捕获
+

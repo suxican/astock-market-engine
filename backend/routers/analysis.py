@@ -29,6 +29,14 @@ from sector_rotation_engine import SectorRotationAgent
 router = APIRouter(prefix="/api/analysis", tags=["AI分析"])
 
 
+def _with_dq(result):
+    """向结果注入 data_quality 信封"""
+    from backend.main import _inject_dq
+    if isinstance(result, dict):
+        return _inject_dq(result)
+    return result
+
+
 import re
 
 _STOCK_CODE_RE = re.compile(r"^\d{6}$")
@@ -180,10 +188,11 @@ def stock_analysis(query: AnalysisQuery):
 
     # AI分析（传入 V8 评分供参考）
     result = analyze_stock(
+        df=df,
         stock_name=stock_name,
         symbol=symbol,
-        market_data=market_text,
-        fund_flow_data=flow_text,
+        summary=summary,
+        fund_flow=fund_flow,
         analysis_type=query.analysis_type,
         v8_scores=structured_scores,
     )
@@ -220,9 +229,7 @@ def local_analysis(query: AnalysisQuery):
     market_text = recent.to_csv(sep="\t", index=False)
     flow_text = str(fund_flow) if fund_flow else ""
 
-    result = _local_rule_analysis(stock_name, market_text, flow_text, query.analysis_type)
-
-    # 优先使用实时行情
+    # 构建 summary（在 local_rule_analysis 之前）
     if quote and quote.get("最新价", 0) > 0:
         summary = {
             "symbol": symbol,
@@ -253,6 +260,8 @@ def local_analysis(query: AnalysisQuery):
         if quote:
             summary["market_cap"] = quote.get("总市值", 0)
             summary["pe"] = quote.get("PE", 0)
+
+    result = _local_rule_analysis(df, stock_name, symbol, summary, fund_flow)
 
     # ── 降级路径: 数据不可信 ──
     quality = df.attrs.get("_quality")
@@ -361,9 +370,34 @@ def expectation_gap(query: AnalysisQuery):
 @router.post("/dragon-leaders")
 @router.get("/dragon-leaders")
 def dragon_leaders():
-    """全市场龙头股识别（GET/POST 均支持，便于前端 fetch 复用）"""
+    """全市场龙头股识别（GET/POST 均支持，便于前端 fetch 复用）
+
+    V3 增强: 交叉引用事件引擎热词，填充 mention_count。
+    """
+    from backend.feature_engine import MarketFeatures
+
+    mf = MarketFeatures.compute()
     agent = DragonLeaderAgent()
-    result = agent.analyze()
+    result = agent.analyze(market_features=mf)
+
+    # V3: 用事件引擎热词填充 mention_count
+    try:
+        from backend.event_engine.hot_tracker import get_trending_topics
+        topics = get_trending_topics(top_k=20)
+        topic_keywords = {t.keyword for t in topics}
+        topic_counts = {t.keyword: t.count for t in topics}
+
+        for leader in result.get("leaders", []):
+            industry = leader.get("industry", "")
+            name = leader.get("name", "")
+            count = 0
+            for kw in topic_keywords:
+                if kw in industry or industry in kw or kw in name:
+                    count += topic_counts.get(kw, 1)
+            leader["mention_count"] = count
+    except Exception:
+        pass
+
     return result
 
 
@@ -479,7 +513,7 @@ def market_scores():
 
     mf = MarketFeatures.compute()
     scores = compute_market_scores(mf)
-    return scores.to_dict()
+    return _with_dq(scores.to_dict())
 
 
 @router.post("/stock-scores", response_model=StockScoresResponse)
@@ -495,7 +529,7 @@ def stock_scores(query: StockScoresQuerySchema):
     symbol = _validate_symbol(query.symbol)
     sf = StockFeatures.compute(symbol)
     scores = compute_stock_scores(sf)
-    return scores.to_dict()
+    return _with_dq(scores.to_dict())
 
 
 # ===== V8 事件驱动引擎 =====
@@ -781,5 +815,113 @@ def strategy_market(sort_by: str = "sharpe"):
     results.sort(key=lambda x: x[sort_key], reverse=True)
 
     return {"rankings": results[:30], "sort_by": sort_by, "updated": __import__("datetime").datetime.now().isoformat()}
+
+
+
+# ===== V3: 新增引擎端点 =====
+
+
+@router.get("/earning-effect")
+def earning_effect():
+    """赚钱效应评分 — 量化市场的赚钱/亏钱效应"""
+    from backend.feature_engine import MarketFeatures
+    from backend.earning_effect_engine import compute_earning_effect
+
+    mf = MarketFeatures.compute()
+    result = compute_earning_effect(mf)
+    return _with_dq(result.to_dict())
+
+
+@router.get("/event-v2")
+def event_v2():
+    """事件引擎 V2 — 事件聚类、影响衰减、综合评分"""
+    from backend.event_engine import compute_event_v2
+
+    result = compute_event_v2()
+    return _with_dq(result.to_dict())
+
+
+@router.get("/market-health")
+def market_health(include_event: bool = False):
+    """市场综合健康分 — 所有维度的统一视图
+
+    include_event: 是否包含事件面评分（较慢，可选）
+    """
+    from backend.feature_engine import MarketFeatures
+    from backend.score_engine import compute_market_health
+    from backend.event_engine import compute_event_v2
+
+    mf = MarketFeatures.compute()
+
+    event_result = None
+    if include_event:
+        event_result = compute_event_v2()
+
+    result = compute_market_health(mf, include_event=include_event, event_result=event_result)
+    return result.to_dict()
+
+
+
+@router.get("/market-breath")
+def market_breadth():
+    """市场宽度 — 涨跌家数、涨跌比、强弱分布"""
+    from backend.services.market_breadth import compute_market_breadth
+
+    result = compute_market_breadth()
+    return _with_dq(result.to_dict())
+
+
+@router.get("/theme-scores")
+def theme_scores():
+    """主线识别 — 板块/主题评分"""
+    from backend.feature_engine import MarketFeatures
+    from backend.score_engine import compute_theme_scores
+
+    mf = MarketFeatures.compute()
+    result = compute_theme_scores(mf)
+    return result.to_dict()
+
+@router.get("/v3/market-dashboard")
+def v3_market_dashboard():
+    """V3 统一市场仪表盘 — 一次请求获取所有盘面数据
+
+    返回:
+      - market_features: 盘面特征
+      - market_scores: 评分（情绪/龙头/风险）
+      - earning_effect: 赚钱效应
+      - market_breath: 市场宽度
+      - theme_scores: 主线识别
+      - market_health: 综合健康分
+    """
+    from backend.feature_engine import MarketFeatures
+    from backend.score_engine import compute_market_scores, compute_market_health, compute_theme_scores
+    from backend.earning_effect_engine import compute_earning_effect
+    from backend.services.market_breadth import compute_market_breadth
+
+    mf = MarketFeatures.compute()
+    scores = compute_market_scores(mf)
+    earning = compute_earning_effect(mf)
+    breath = compute_market_breadth()
+    themes = compute_theme_scores(mf)
+    health = compute_market_health(mf)
+
+    return _with_dq({
+        "features": mf.to_dict(),
+        "scores": scores.to_dict(),
+        "earning_effect": earning.to_dict(),
+        "market_breath": breath.to_dict(),
+        "theme_scores": themes.to_dict(),
+        "health": health.to_dict(),
+        "computed_at": mf.computed_at,
+    })
+
+
+
+
+
+
+
+
+
 
 

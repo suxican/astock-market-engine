@@ -74,4 +74,28 @@ export const api = {
   getSystemStatus(): Promise<SystemStatusResponse> {
     return fetchJSON<SystemStatusResponse>("/api/stock/system/status")
   },
+
+  // ══════════════════════════════════════════
+  // V3 新增 API
+  // ══════════════════════════════════════════
+
+  getEarningEffect(): Promise<import("./types").EarningEffectScores> {
+    return fetchJSON("/api/analysis/earning-effect")
+  },
+
+  getEventV2(): Promise<import("./types").EventV2Result> {
+    return fetchJSON("/api/analysis/event-v2")
+  },
+
+  getMarketHealth(includeEvent = false): Promise<import("./types").MarketHealthScore> {
+    return fetchJSON(`/api/analysis/market-health?include_event=${includeEvent}`)
+  },
+
+  getV3MarketDashboard(): Promise<import("./types").V3MarketDashboard> {
+    return fetchJSON("/api/analysis/v3/market-dashboard")
+  },
+
+  getQualityDashboard(): Promise<import("./types").QualityDashboard> {
+    return fetchJSON("/api/stock/quality/dashboard")
+  },
 }

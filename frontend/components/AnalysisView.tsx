@@ -80,7 +80,8 @@ const SECTIONS: Record<string, { icon: any; accent: string }> = {
   '五、预期差分析': { icon: Lightbulb, accent: '#D4943A' },
 }
 
-export default function AnalysisView({ text }: AnalysisViewProps) {
+export default function AnalysisView({ text: rawText }: AnalysisViewProps) {
+  const text = typeof rawText === "string" ? rawText : String(rawText ?? "")
   const sections = parseSections(text)
   if (sections.length === 0) {
     return <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{text}</div>
@@ -192,3 +193,5 @@ export default function AnalysisView({ text }: AnalysisViewProps) {
     </div>
   )
 }
+
+

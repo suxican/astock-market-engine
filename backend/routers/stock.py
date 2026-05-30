@@ -137,10 +137,41 @@ def system_status():
 
     status = classify_system_status(dq)
 
+    # V3: 缓存统计
+    from backend.services._cache import get_cache_stats
+    cache = get_cache_stats()
+
     return {
         "status": status,
         "sources": sources,
+        "cache": cache,
         "updated_at": datetime.now().isoformat(),
     }
 
+
+
+# ===== V3: 数据质量仪表盘 =====
+
+
+@router.get("/quality/dashboard")
+def quality_dashboard():
+    """数据质量仪表盘 — 全链路数据质量监控"""
+    from backend.services.quality_monitor import get_quality_monitor
+
+    monitor = get_quality_monitor()
+    dashboard = monitor.get_dashboard()
+    return dashboard.to_dict()
+
+
+@router.get("/quality/sources")
+def quality_sources():
+    """各数据源健康状态"""
+    from backend.services.quality_monitor import get_quality_monitor
+
+    monitor = get_quality_monitor()
+    health_map = monitor.get_source_health_map()
+    return {
+        "sources": {k: v.to_dict() for k, v in health_map.items()},
+        "count": len(health_map),
+    }
 

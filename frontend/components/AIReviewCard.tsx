@@ -4,7 +4,8 @@ import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { TrendingUp, AlertTriangle, Activity, FileText } from 'lucide-react'
 
-function renderInline(text: string): React.ReactNode {
+function renderInline(text: any): React.ReactNode {
+  if (typeof text !== "string") return String(text ?? "")
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
@@ -97,8 +98,10 @@ interface AIReviewCardProps {
 
 export default function AIReviewCard({ text, extraMetrics }: AIReviewCardProps) {
   if (!text) return null
+  // Type guard: ensure text is a string
+  const textStr = typeof text === 'string' ? text : String(text)
 
-  const autoMetrics = extractMetrics(text)
+  const autoMetrics = extractMetrics(textStr)
   const hasMetrics = autoMetrics.length > 0 || (extraMetrics && extraMetrics.length > 0)
 
   return (
@@ -133,9 +136,12 @@ export default function AIReviewCard({ text, extraMetrics }: AIReviewCardProps) 
         )}
 
         <div className="analysis-content">
-          {renderMarkdown(text)}
+          {renderMarkdown(textStr)}
         </div>
       </CardContent>
     </Card>
   )
 }
+
+
+

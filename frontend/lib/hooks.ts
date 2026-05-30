@@ -94,3 +94,17 @@ export function useSystemStatus() {
 export function useStrategyMarket(sortBy: string = 'sharpe') {
   return useSWR(`${API_BASE}/api/analysis/strategy-market?sort_by=${sortBy}`, fetcher, defaultOpts)
 }
+
+// ── V3 新增 ──
+
+export function useMarketBreadth() {
+  return useSWR(`${API_BASE}/api/analysis/market-breath`, fetcher, defaultOpts)
+}
+
+export function useThemeScores() {
+  return useSWR(`${API_BASE}/api/analysis/theme-scores`, fetcher, defaultOpts)
+}
+
+export function useEventV2() {
+  return useSWR(`${API_BASE}/api/analysis/event-v2`, fetcher, defaultOpts)
+}

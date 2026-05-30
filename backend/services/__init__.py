@@ -58,3 +58,6 @@ from .quote_data import (
     get_realtime_quote,
     get_realtime_quote_map,
 )
+
+# 市场宽度
+from .market_breadth import MarketBreadth, compute_market_breadth

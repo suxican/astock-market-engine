@@ -1,28 +1,31 @@
-"""板块轮动分析 Agent
+"""板块轮动分析 Agent (V3)
 
-双维度分析（行业+概念板块），状态分类（加强/持续/退潮/反弹），涨停分布统计。
+V3 变更: 接受 MarketFeatures 预计算的涨停分布。
 """
 from typing import Any
 
+from backend.feature_engine.market_features import MarketFeatures
 from backend.services import get_limit_up_pool, get_sector_fund_flow_by_type
 
 
 class SectorRotationAgent:
-    """板块轮动分析器"""
+    """板块轮动分析器 (V3)"""
 
-    def analyze(self) -> dict[str, Any]:
+    def analyze(self, market_features: MarketFeatures | None = None) -> dict[str, Any]:
         """分析全市场板块轮动
 
-        Returns:
-            industry: 行业板块分析
-            concept: 概念板块分析
-            最强板块: 综合得分最高的板块
+        Args:
+            market_features: 预计算的盘面特征
         """
         industry = self._analyze_type("行业资金流向")
         concept = self._analyze_type("概念资金流向")
-        board_dist = self._analyze_board_distribution()
 
-        # 综合最强板块
+        # 使用预计算的涨停分布或重新计算
+        if market_features is not None and market_features.board_distribution:
+            board_dist = self._dist_from_features(market_features)
+        else:
+            board_dist = self._analyze_board_distribution()
+
         最强 = None
         最强_score = 0
         for b in board_dist:
@@ -33,61 +36,14 @@ class SectorRotationAgent:
                     最强 = b["name"] if b.get("name") else None
 
         return {
-            "industry": industry,
-            "concept": concept,
+            "industry": industry, "concept": concept,
             "board_distribution": board_dist[:10],
             "最强板块": 最强 or "无明显最强板块",
             "最强板块涨停数": max([b["涨停数"] for b in board_dist], default=0),
         }
 
-    def _analyze_type(self, sector_type: str) -> dict[str, Any]:
-        """分析一类板块（行业/概念）"""
-        df = get_sector_fund_flow_by_type(sector_type)
-        if df is None or df.empty:
-            return {"加强": [], "持续": [], "退潮": [], "反弹": []}
-
-        records = []
-        for _, row in df.iterrows():
-            change = self._safe_float(row.get("今日涨跌幅", 0))
-            flow = self._safe_float(row.get("主力净流入-净额", 0))
-            name = str(row.get("名称", ""))
-            records.append({
-                "name": name,
-                "change": round(change, 2),
-                "flow": round(flow, 2),
-                "flow_yi": round(flow / 1e8, 2),
-            })
-
-        # 状态分类
-        result = {"加强": [], "持续": [], "退潮": [], "反弹": []}
-
-        for r in records:
-            if r["change"] > 0 and r["flow"] > 0:
-                result["加强"].append(r)
-            elif r["change"] > 0 and r["flow"] <= 0:
-                result["持续"].append(r)
-            elif r["change"] < 0 and r["flow"] < 0:
-                result["退潮"].append(r)
-            elif r["change"] < 0 and r["flow"] >= 0:
-                result["反弹"].append(r)
-
-        # 按资金流排序
-        for k in result:
-            result[k] = sorted(result[k], key=lambda x: abs(x["flow"]), reverse=True)[:10]
-
-        return result
-
-    def _analyze_board_distribution(self) -> list[dict]:
-        """统计各行业涨停分布"""
-        pool = get_limit_up_pool()
-        if pool.empty:
-            return []
-
-        from collections import Counter
-        industries = pool["所属行业"].dropna().astype(str).tolist()
-        # 统计涨停数
-        cnt = Counter(industries)
-        # 获取板块资金流向
+    def _dist_from_features(self, mf: MarketFeatures) -> list[dict]:
+        """从预计算的 board_distribution 构建板块分布"""
         df = get_sector_fund_flow_by_type("行业资金流向")
         flow_map = {}
         if df is not None and not df.empty:
@@ -97,21 +53,50 @@ class SectorRotationAgent:
                     "flow": self._safe_float(row.get("主力净流入-净额", 0)),
                     "change": self._safe_float(row.get("今日涨跌幅", 0)),
                 }
+        result = []
+        for ind, count in sorted(mf.board_distribution.items(), key=lambda x: x[1], reverse=True):
+            info = flow_map.get(ind, {})
+            result.append({"name": ind, "涨停数": count, "flow": info.get("flow", 0), "change": info.get("change", 0)})
+        return result
 
+    def _analyze_type(self, sector_type):
+        df = get_sector_fund_flow_by_type(sector_type)
+        if df is None or df.empty:
+            return {"加强": [], "持续": [], "退潮": [], "反弹": []}
+        records = []
+        for _, row in df.iterrows():
+            change = self._safe_float(row.get("今日涨跌幅", 0))
+            flow = self._safe_float(row.get("主力净流入-净额", 0))
+            name = str(row.get("名称", ""))
+            records.append({"name": name, "change": round(change, 2), "flow": round(flow, 2), "flow_yi": round(flow / 1e8, 2)})
+        result = {"加强": [], "持续": [], "退潮": [], "反弹": []}
+        for r in records:
+            if r["change"] > 0 and r["flow"] > 0: result["加强"].append(r)
+            elif r["change"] > 0 and r["flow"] <= 0: result["持续"].append(r)
+            elif r["change"] < 0 and r["flow"] < 0: result["退潮"].append(r)
+            elif r["change"] < 0 and r["flow"] >= 0: result["反弹"].append(r)
+        for k in result:
+            result[k] = sorted(result[k], key=lambda x: abs(x["flow"]), reverse=True)[:10]
+        return result
+
+    def _analyze_board_distribution(self):
+        pool = get_limit_up_pool()
+        if pool.empty: return []
+        from collections import Counter
+        industries = pool["所属行业"].dropna().astype(str).tolist()
+        cnt = Counter(industries)
+        df = get_sector_fund_flow_by_type("行业资金流向")
+        flow_map = {}
+        if df is not None and not df.empty:
+            for _, row in df.iterrows():
+                name = str(row.get("名称", ""))
+                flow_map[name] = {"flow": self._safe_float(row.get("主力净流入-净额", 0)), "change": self._safe_float(row.get("今日涨跌幅", 0))}
         result = []
         for ind, count in cnt.most_common(20):
             info = flow_map.get(ind, {})
-            result.append({
-                "name": ind,
-                "涨停数": count,
-                "flow": info.get("flow", 0),
-                "change": info.get("change", 0),
-            })
-
+            result.append({"name": ind, "涨停数": count, "flow": info.get("flow", 0), "change": info.get("change", 0)})
         return result
 
-    def _safe_float(self, val) -> float:
-        try:
-            return float(val)
-        except (ValueError, TypeError):
-            return 0.0
+    def _safe_float(self, val):
+        try: return float(val)
+        except (ValueError, TypeError): return 0.0
