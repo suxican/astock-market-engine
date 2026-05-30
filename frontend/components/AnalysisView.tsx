@@ -19,7 +19,7 @@ function parseSections(text: string): Section[] {
   const sections: Section[] = []
   let cur: Section | null = null
   for (const line of lines) {
-    const m = line.match(/^##\s+(.+)/)
+    const m = line.match(/^#{2,3}\s+(.+)/)
     if (m) { if (cur) sections.push(cur); cur = { title: m[1].trim(), body: [] } }
     else if (cur) cur.body.push(line)
   }
@@ -31,7 +31,9 @@ function extractOneLiner(sections: Section[]): string {
   for (const s of sections) {
     for (const line of s.body) {
       const t = line.replace(/[*#\-]/g, '').trim()
-      if (t.length > 5) return t
+      // Skip empty, short, or metadata lines
+      if (t.length > 10 && !t.startsWith('结论') && !t.startsWith('判断') && !t.startsWith('置信度'))
+        return t
     }
   }
   return ''
@@ -40,10 +42,12 @@ function extractOneLiner(sections: Section[]): string {
 function extractVerdict(sections: Section[]): { text: string; confidence: string } | null {
   for (const s of sections) {
     const joined = s.body.join('\n')
-    const m = joined.match(/\*\*(结论|核心判断|判断)：?\*\*\s*(.+)/)
+    // Match: **结论：** text  or  **结论：**text  or  **结论：**text（置信度...）
+    const m = joined.match(/\*\*(结论|核心判断|判断)[：:]?\*\*\s*(.+)/)
     if (m) {
+      const text = m[2].replace(/\*/g, '').trim()
       const conf = joined.match(/置信度[：:]\s*(\S+)/)
-      return { text: m[2].replace(/\*/g, '').trim(), confidence: conf?.[1] || '' }
+      return { text, confidence: conf?.[1] || '' }
     }
   }
   return null
