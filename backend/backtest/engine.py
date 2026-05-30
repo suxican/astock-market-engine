@@ -98,6 +98,9 @@ def run_backtest(
                 price = sig["price"]
                 cost = price * (1 + commission_rate)
                 shares = math.floor(capital / cost / 100) * 100  # A股100股整数倍
+                if shares <= 0:
+                    buy_signal_idx += 1
+                    continue
                 if shares > 0:
                     capital -= shares * cost
                     trades.append({

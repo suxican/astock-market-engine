@@ -32,7 +32,7 @@ export default function BacktestPage() {
   const router = useRouter()
   const [symbol, setSymbol] = useState('600519')
   const [strategy, setStrategy] = useState('ma_cross')
-  const [capital, setCapital] = useState('100000')
+  const [capital, setCapital] = useState('500000')
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
