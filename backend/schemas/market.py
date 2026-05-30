@@ -37,3 +37,4 @@ class MarketScoresResponse(BaseModel):
     dragon_intensity: DragonIntensityResponse
     risk: RiskScoresResponse
     computed_at: str = Field("", description="计算时间")
+    data_quality: dict = Field(default_factory=dict, description="数据质量信封")

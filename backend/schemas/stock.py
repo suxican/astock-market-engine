@@ -34,3 +34,4 @@ class StockScoresResponse(BaseModel):
     main_capital: MainCapitalScoresResponse
     technical: TechnicalScoresResponse
     composite: int = Field(..., description="综合评分 0-100")
+    data_quality: dict = Field(default_factory=dict, description="数据质量信封")
