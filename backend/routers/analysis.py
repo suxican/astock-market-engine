@@ -858,7 +858,7 @@ def market_health(include_event: bool = False):
         event_result = compute_event_v2()
 
     result = compute_market_health(mf, include_event=include_event, event_result=event_result)
-    return result.to_dict()
+    return _with_dq(result.to_dict())
 
 
 
@@ -879,7 +879,21 @@ def theme_scores():
 
     mf = MarketFeatures.compute()
     result = compute_theme_scores(mf)
-    return result.to_dict()
+    return _with_dq(result.to_dict())
+
+
+@router.get("/v4/market-decision")
+def v4_market_decision():
+    """V4 市场决策 — Rule Engine 决策 + Evidence 验证 + GuardRail
+
+    核心原则: AI 只解释，规则做决策。
+    每个结论必须有 >= 2 条证据，置信度 >= 0.7。
+    证据不足 → INSUFFICIENT_EVIDENCE
+    """
+    from backend.rule_engine.decision import compute_market_decision
+
+    result = compute_market_decision()
+    return _with_dq(result.to_dict())
 
 @router.get("/v3/market-dashboard")
 def v3_market_dashboard():
@@ -914,6 +928,7 @@ def v3_market_dashboard():
         "health": health.to_dict(),
         "computed_at": mf.computed_at,
     })
+
 
 
 
