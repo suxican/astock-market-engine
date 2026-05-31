@@ -8,7 +8,7 @@ import {
   ArrowUp, ArrowDown, Minus, Sparkles,
 } from 'lucide-react'
 
-interface AnalysisViewProps { text: string }
+interface AnalysisViewProps { text: string | undefined | null }
 
 // ── 解析 ──
 
@@ -28,6 +28,7 @@ function parseSections(text: string): Section[] {
 }
 
 function extractOneLiner(sections: Section[]): string {
+  if (!sections?.length) return ''
   for (const s of sections) {
     for (const line of s.body) {
       const t = line.replace(/[*#\-]/g, '').trim()

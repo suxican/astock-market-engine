@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 
 from backend.services import (
+    get_data_date,
     get_limit_down_pool,
     get_limit_up_pool,
     get_market_overview,
@@ -45,6 +46,9 @@ class MarketFeatures:
     # 原始池 (Agent 需要深度分析时使用，避免二次查询)
     limit_up_pool: pd.DataFrame | None = field(default=None, repr=False)
     limit_down_pool: pd.DataFrame | None = field(default=None, repr=False)
+
+    # 数据日期（非交易日回退时为最近交易日，交易日为 None）
+    data_date: str | None = None
 
     # 时间戳
     computed_at: str = ""
@@ -97,6 +101,7 @@ class MarketFeatures:
             board_distribution=board_dist,
             limit_up_pool=up_pool if not up_pool.empty else None,
             limit_down_pool=down_pool if not down_pool.empty else None,
+            data_date=get_data_date(),
             computed_at=now,
         )
 
@@ -115,6 +120,7 @@ class MarketFeatures:
             "board_distribution": dict(
                 sorted(self.board_distribution.items(), key=lambda x: x[1], reverse=True)[:20]
             ),
+            "data_date": self.data_date,
             "computed_at": self.computed_at,
         }
 

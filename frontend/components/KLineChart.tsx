@@ -12,6 +12,8 @@ interface KLineBar {
   close: number
   volume: number
   turnover?: number
+  pct_change?: number
+  change?: number
 }
 
 interface KLineChartProps {
@@ -66,6 +68,18 @@ function calcMA(data: KLineBar[], n: number): (number | null)[] {
 
 function fmt(n: number, dec = 2) {
   return n.toFixed(dec)
+}
+
+function fmtDate(d: string): string {
+  if (!d) return '--'
+  // Handle ISO format "2026-05-25T00:00:00" -> "05-25"
+  const datePart = d.split('T')[0]
+  return datePart.slice(5) // "MM-DD"
+}
+
+function fmtDateFull(d: string): string {
+  if (!d) return '--'
+  return d.split('T')[0] // "YYYY-MM-DD"
 }
 
 function pctChange(a: number, b: number) {
@@ -263,7 +277,7 @@ export default function KLineChart({ symbol, name, phase = 'unknown', apiBase = 
       mctx.fillStyle = 'hsl(var(--border))'; mctx.fillRect(x - 40, H - PAD.b + 2, 80, 22)
       mctx.fillStyle = 'hsl(var(--muted-foreground))'; mctx.font = '18px JetBarChart3s Mono, monospace'
       mctx.textAlign = 'center'
-      mctx.fillText(data[hovered].date.slice(5), x, H - PAD.b + 16)
+      mctx.fillText(fmtDate(data[hovered].date), x, H - PAD.b + 16)
     }
 
     // Volume (gray in mock mode)
@@ -334,7 +348,7 @@ export default function KLineChart({ symbol, name, phase = 'unknown', apiBase = 
   // ── Derived stats ───────────────────────────────────────────────────────────
   const last = data[data.length - 1]
   const prev = data[data.length - 2]
-  const dayPct = last && prev ? pctChange(prev.close, last.close) : 0
+  const dayPct = last?.pct_change != null ? last.pct_change : (last && prev ? pctChange(prev.close, last.close) : 0)
   const mas = MA_CONFIG.map(({ n: mn }) => {
     const ma = calcMA(data, mn)
     return ma[data.length - 1]
@@ -357,6 +371,7 @@ export default function KLineChart({ symbol, name, phase = 'unknown', apiBase = 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>{name}</span>
             <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>{symbol}</span>
+            {last && <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{fmtDateFull(last.date)}</span>}
             <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
               background: phaseConf.bg, color: phaseConf.color }}>
               {phaseConf.label}
@@ -419,6 +434,12 @@ export default function KLineChart({ symbol, name, phase = 'unknown', apiBase = 
           </div>
         ))}
 
+        {/* Hovered date */}
+        {hoveredBar && (
+          <span style={{ fontSize: 11, color: 'hsl(var(--foreground))', fontWeight: 600 }}>
+            {fmtDateFull(hoveredBar.date)}
+          </span>
+        )}
         {/* Hovered bar info */}
         
           {hoveredBar && (
@@ -433,7 +454,7 @@ export default function KLineChart({ symbol, name, phase = 'unknown', apiBase = 
                 <span key={l as string} style={{ color: 'hsl(var(--muted-foreground))' }}>
                   {l as string}<span style={{
                     marginLeft: 3, fontWeight: 600,
-                    color: (v as number) >= hoveredBar.open ? upColor : downColor
+                    color: l === '开' ? 'hsl(var(--foreground))' : ((v as number) >= hoveredBar.open ? upColor : downColor)
                   }}>{fmt(v as number)}</span>
                 </span>
               ))}

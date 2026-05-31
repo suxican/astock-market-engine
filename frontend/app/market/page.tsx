@@ -2,46 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  TrendingUp, TrendingDown, Activity, BarChart3, Loader2,
-  Building, Newspaper, FileText,
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { TrendingUp, TrendingDown, Activity, BarChart3, Loader2, Building, Flame } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
-import DragonLeaderCard from '@/components/DragonLeaderCard'
-import SectorRotationCard from '@/components/SectorRotationCard'
 import SystemStatusBar from '@/components/SystemStatusBar'
-import MockWarningBanner from '@/components/MockWarningBanner'
-import { ErrorState, EmptyState } from '@/components/ui/states'
-import {
-  useMarketOverview, useMarketReview, useSectorFlow,
-  useDragonLeaders, useSectorRotation, useMarketScores,
-} from '@/lib/hooks'
+import { ErrorState } from '@/components/ui/states'
+import { useMarketOverview, useMarketReview, useSectorFlow, useMarketScores, useThemeScores, useMarketBreadth, useEarningEffect, useMarketHealth } from '@/lib/hooks'
 import { useSystemStatus } from '@/components/SystemStatusProvider'
-import type { MarketScores } from '@/lib/types'
-import { emotionColor, riskColor } from '@/lib/types'
 
-import EarningEffectDashboard from '@/components/EarningEffectDashboard'
-import MarketHealthCard from '@/components/MarketHealthCard'
-import MarketBreadthCard from '@/components/MarketBreadthCard'
-import ThemeScoresCard from '@/components/ThemeScoresCard'
-import DataQualityDashboard from '@/components/DataQualityDashboard'
 export default function MarketPage() {
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
   const { isMock } = useSystemStatus()
 
   const { data: overview, error: ovErr } = useMarketOverview()
-  const { data: marketReview, error: mrErr } = useMarketReview()
+  const { data: review } = useMarketReview()
   const { data: sectorData } = useSectorFlow()
-  const { data: dragonLeaders } = useDragonLeaders()
-  const { data: sectorRotation } = useSectorRotation()
-  const { data: marketScores } = useMarketScores()
+  const { data: scores } = useMarketScores()
+  const { data: themes } = useThemeScores()
+  const { data: breadth } = useMarketBreadth()
+  const { data: earning } = useEarningEffect()
+  const { data: health } = useMarketHealth()
 
-  const sectorFlow = sectorData?.sectors ?? []
-  const loading = !overview && !marketReview && !ovErr && !mrErr
-  const error = ovErr && mrErr ? (ovErr?.message || mrErr?.message || '加载失败') : ''
+  const loading = !overview && !review && !ovErr
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -49,309 +31,214 @@ export default function MarketPage() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const getEmotionStyle = (stage: string) => {
-    const map: Record<string, { color: string; bg: string }> = {
-      '冰点期': { color: 'text-blue-400', bg: 'bg-muted' },
-      '修复期': { color: 'text-down', bg: 'bg-muted' },
-      '主升期': { color: 'text-up', bg: 'bg-muted' },
-      '高潮期': { color: 'text-up', bg: 'bg-muted' },
-      '分歧期': { color: 'text-muted-foreground', bg: 'bg-muted' },
-      '退潮期': { color: 'text-down', bg: 'bg-muted' },
-    }
-    return map[stage] || { color: 'text-muted-foreground', bg: 'bg-muted' }
-  }
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+    </div>
+  )
 
-  const emotion = marketReview?.emotion
-  const topBoards = marketReview?.top_boards || []
-  const zhabanRate = marketReview?.zhaban_rate
-  const limitUpCount = marketReview?.limit_up_count ?? 0
-  const limitDownCount = marketReview?.limit_down_count ?? 0
+  if (ovErr && !overview) return <ErrorState message={`加载失败: ${ovErr?.message}`} />
+
+  const indices = [
+    { label: '上证指数', key: '上证指数' },
+    { label: '深证成指', key: '深证成指' },
+    { label: '创业板指', key: '创业板指' },
+    { label: '科创50', key: '科创50' },
+  ]
+
+  const emotion = scores?.emotion
+  const risk = scores?.risk
+  const topBoards = review?.top_boards || []
+  const sectorFlow = sectorData?.sectors || []
+  const mainThemes = themes?.themes?.slice(0, 4) || []
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader
-        title="大盘概况"
-        variant="fixed"
-        scrolled={scrolled}
+      <AppHeader title="市场概况" variant="sticky" scrolled={scrolled}
         statusBar={<SystemStatusBar />}
         navItems={[
           { href: '/', label: '首页' },
-          { href: '/stock?symbol=000001', label: '个股' },
           { href: '/review', label: '复盘' },
-        ]}
-      />
+          { href: '/workbench', label: '工作台' },
+        ]} />
 
-      <main className="max-w-4xl mx-auto px-4 pt-16 pb-8">
-        {loading ? (
-          <div className="flex justify-center py-24">
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      <main className="max-w-6xl mx-auto px-4 pt-14 pb-8">
+        {/* ── Bento Grid ── */}
+        <div className="grid grid-cols-12 gap-3">
+
+          {/* ═══ 行指数 (4格横排) ═══ */}
+          {indices.map((idx, i) => {
+            const v = overview?.[idx.key]
+            if (!v) return null
+            const close = parseFloat(v['最新价'] || 0)
+            const pct = parseFloat(v['涨跌幅'] || 0)
+            const isUp = pct >= 0
+            return (
+              <div key={idx.key} className="col-span-3 rounded-xl border border-border bg-card p-3.5">
+                <div className="text-[10px] text-muted-foreground mb-1">{idx.label}</div>
+                <div className="text-lg font-bold font-mono tracking-tight">{close.toFixed(2)}</div>
+                <div className={`text-xs font-mono font-medium ${isUp ? 'text-up' : 'text-down'}`}>
+                  {isUp ? '+' : ''}{pct.toFixed(2)}%
+                </div>
+              </div>
+            )
+          })}
+
+          {/* ═══ 情绪周期指示器 ═══ */}
+          <div className="col-span-12 md:col-span-8 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">情绪周期</div>
+              {emotion && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  style={{
+                    background: emotion.score >= 60 ? 'hsl(var(--up) / 0.1)' : 'hsl(var(--muted))',
+                    color: emotion.score >= 60 ? 'hsl(var(--up))' : 'hsl(var(--muted-foreground))'
+                  }}>
+                  {emotion.stage}
+                </span>
+              )}
+            </div>
+            {/* 阶段进度条 */}
+            {emotion && (
+              <div className="space-y-2">
+                <div className="flex gap-1">
+                  {['冰点', '修复', '主升', '高潮', '分歧', '退潮'].map((s, i) => {
+                    const isActive = emotion.stage?.includes(s)
+                    return (
+                      <div key={s} className="flex-1 text-center">
+                        <div className={`h-1.5 rounded-full mb-1 transition-all ${isActive ? 'bg-primary' : 'bg-muted'}`} />
+                        <span className={`text-[9px] ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{s}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {emotion.signals?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {emotion.signals.map((s: string, i: number) => (
+                      <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">{s}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="text-[11px] text-muted-foreground mt-1">{emotion.suggestion}</div>
+              </div>
+            )}
           </div>
-        ) : error ? (
-          <ErrorState message={`大盘数据加载失败: ${error}`} />
-        ) : !overview && !marketReview ? (
-          <EmptyState type="no_data" message="暂无大盘数据" />
-        ) : (
-          <div className="space-y-4">
-            {isMock && <MockWarningBanner />}
 
-            {/* 大盘指数 */}
-            {overview && (
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: '上证指数', value: overview['上证指数'] },
-                  { label: '深证成指', value: overview['深证成指'] },
-                  { label: '创业板指', value: overview['创业板指'] },
-                  { label: '科创50', value: overview['科创50'] },
-                ].filter(i => i.value).map(item => {
-                  const v = item.value
-                  const pct = parseFloat(v?.涨跌幅 || 0)
+          {/* ═══ 市场健康分 ═══ */}
+          <div className="col-span-12 md:col-span-4 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">综合健康分</div>
+            {health ? (
+              <div className="text-center">
+                <div className="text-4xl font-bold font-mono" style={{
+                  color: health.composite >= 70 ? 'hsl(var(--down))' : health.composite >= 40 ? 'hsl(var(--warn))' : 'hsl(var(--up))'
+                }}>{health.composite}</div>
+                <div className="text-xs text-muted-foreground mt-1">{health.level}</div>
+                <div className="grid grid-cols-2 gap-2 mt-3 text-[10px]">
+                  <div className="flex justify-between"><span className="text-muted-foreground">情绪</span><span className="font-mono">{health.emotion?.score}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">龙头</span><span className="font-mono">{health.dragon_intensity?.score}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">赚钱</span><span className="font-mono">{health.earning_effect?.composite}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">风险</span><span className="font-mono">{health.risk?.score}</span></div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground animate-pulse">加载中...</div>
+            )}
+          </div>
+
+          {/* ═══ 主线识别 ═══ */}
+          <div className="col-span-12 md:col-span-6 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">主线识别</div>
+            {mainThemes.length > 0 ? (
+              <div className="space-y-2">
+                {mainThemes.map((t: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">{t.name}</span>
+                      {t.is_main_line && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">主线</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-muted-foreground">{t.limit_up_count}涨停</span>
+                      <span className="text-xs font-mono font-medium">{t.score}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">暂无主线数据</div>
+            )}
+          </div>
+
+          {/* ═══ 龙头榜 ═══ */}
+          <div className="col-span-12 md:col-span-6 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">龙头高标</div>
+            {topBoards.length > 0 ? (
+              <div className="space-y-1.5">
+                {topBoards.slice(0, 5).map((s: any) => (
+                  <button key={s.symbol} onClick={() => router.push(`/stock?code=${s.symbol}`)}
+                    className="w-full flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground font-mono">{s.symbol}</span>
+                      <span className="text-xs font-medium">{s.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{s.industry}</span>
+                    </div>
+                    <div className="text-sm font-bold font-mono text-up">{s.boards}板</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">暂无龙头数据</div>
+            )}
+          </div>
+
+          {/* ═══ 涨跌停 ═══ */}
+          <div className="col-span-6 md:col-span-3 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">涨停</div>
+            <div className="text-2xl font-bold font-mono text-up">{review?.limit_up_count ?? '--'}</div>
+          </div>
+          <div className="col-span-6 md:col-span-3 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">跌停</div>
+            <div className="text-2xl font-bold font-mono text-down">{review?.limit_down_count ?? '--'}</div>
+          </div>
+          <div className="col-span-6 md:col-span-3 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">炸板率</div>
+            <div className="text-2xl font-bold font-mono">{review?.zhaban_rate != null ? (review.zhaban_rate * 100).toFixed(0) + '%' : '--'}</div>
+          </div>
+          <div className="col-span-6 md:col-span-3 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">最高板</div>
+            <div className="text-2xl font-bold font-mono">{topBoards[0]?.boards ?? '--'}</div>
+          </div>
+
+          {/* ═══ 板块资金流向（热图风格） ═══ */}
+          <div className="col-span-12 rounded-xl border border-border bg-card p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">板块资金流向</div>
+            {sectorFlow.length > 0 ? (
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1.5">
+                {sectorFlow.slice(0, 20).map((s: any, i: number) => {
+                  const pct = parseFloat(s['今日涨跌幅'] || 0)
+                  const flow = parseFloat(s['主力净流入-净额'] || 0)
+                  const intensity = Math.min(Math.abs(pct) / 3, 1)
                   return (
-                    <Card key={item.label} className="border-border rounded">
-                      <CardContent className="p-4">
-                        <div className="text-[11px] text-muted-foreground mb-1">{item.label}</div>
-                        <div className={`text-lg font-bold font-mono ${pct >= 0 ? 'text-up' : 'text-down'}`}>
-                          {parseFloat(v?.最新价 || 0).toFixed(2)}
-                        </div>
-                        <div className={`text-xs font-mono ${pct >= 0 ? 'text-up' : 'text-down'}`}>
-                          {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div key={i} className="rounded-lg p-2 text-center transition-all hover:scale-105"
+                      style={{
+                        background: pct >= 0
+                          ? `hsl(var(--up) / ${0.05 + intensity * 0.15})`
+                          : `hsl(var(--down) / ${0.05 + intensity * 0.15})`,
+                      }}>
+                      <div className="text-[10px] font-medium truncate">{s['名称'] || '--'}</div>
+                      <div className={`text-xs font-mono font-bold ${pct >= 0 ? 'text-up' : 'text-down'}`}>
+                        {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                      </div>
+                    </div>
                   )
                 })}
               </div>
-            )}
-
-            {/* 涨跌停统计 */}
-            <div className="grid grid-cols-3 gap-3">
-              <Card className="border-border rounded">
-                <CardContent className="p-4">
-                  <div className="text-[11px] text-muted-foreground mb-1">涨停</div>
-                  <div className="text-2xl font-bold font-mono text-up">{limitUpCount}</div>
-                </CardContent>
-              </Card>
-              <Card className="border-border rounded">
-                <CardContent className="p-4">
-                  <div className="text-[11px] text-muted-foreground mb-1">跌停</div>
-                  <div className="text-2xl font-bold font-mono text-down">{limitDownCount}</div>
-                </CardContent>
-              </Card>
-              <Card className="border-border rounded">
-                <CardContent className="p-4">
-                  <div className="text-[11px] text-muted-foreground mb-1">炸板率</div>
-                  <div className="text-2xl font-bold font-mono">{zhabanRate != null ? (zhabanRate * 100).toFixed(1) + '%' : '--'}</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 情绪周期 */}
-            {emotion && (
-              <Card className="border-border rounded">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-muted-foreground" />
-                    <CardTitle className="text-sm">情绪周期</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <div className="text-2xl font-bold" style={{ color: emotionColor(emotion.stage) }}>
-                        {emotion.stage}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        置信度: {emotion.confidence}
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-xs text-muted-foreground leading-relaxed">
-                        {emotion.suggestion}
-                      </div>
-                    </div>
-                  </div>
-                  {emotion.signals?.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {emotion.signals.map((s: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-[10px]">{s}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 市场复盘 */}
-            {marketReview?.ai_review && (
-              <Card className="border-border rounded">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                    <CardTitle className="text-sm">市场复盘</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {marketReview.ai_review}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 龙头股 */}
-            {dragonLeaders && (
-              <DragonLeaderCard data={dragonLeaders} />
-            )}
-
-            {/* 板块轮动 */}
-            <SectorRotationCard data={sectorRotation} />
-
-            {/* 市场评分 */}
-            {marketScores && (
-              <Card className="border-border rounded">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                    <CardTitle className="text-sm">市场评分</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded bg-muted">
-                      <div className="text-[10px] text-muted-foreground mb-1">情绪</div>
-                      <div className="text-xl font-bold font-mono" style={{ color: emotionColor(marketScores.emotion.stage) }}>
-                        {marketScores.emotion.score}
-                      </div>
-                      <Badge className="text-[10px] mt-1" style={{
-                        background: emotionColor(marketScores.emotion.stage) + '18',
-                        color: emotionColor(marketScores.emotion.stage),
-                        border: 'none',
-                      }}>{marketScores.emotion.stage}</Badge>
-                    </div>
-                    <div className="p-3 rounded bg-muted">
-                      <div className="text-[10px] text-muted-foreground mb-1">龙头强度</div>
-                      <div className="text-xl font-bold font-mono">{marketScores.dragon_intensity.score}</div>
-                      <div className="text-[10px] text-muted-foreground">{marketScores.dragon_intensity.high_board_count} 只高标</div>
-                    </div>
-                    <div className="p-3 rounded bg-muted">
-                      <div className="text-[10px] text-muted-foreground mb-1">风险</div>
-                      <div className="text-xl font-bold font-mono" style={{ color: riskColor(marketScores.risk.level) }}>
-                        {marketScores.risk.score}
-                      </div>
-                      <Badge className="text-[10px] mt-1" style={{
-                        background: riskColor(marketScores.risk.level) + '18',
-                        color: riskColor(marketScores.risk.level),
-                        border: 'none',
-                      }}>{marketScores.risk.level}风险</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 连板高标 */}
-            {topBoards.length > 0 && (
-              <Card className="border-border rounded">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-muted-foreground" />
-                    <CardTitle className="text-sm">连板高标</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">#</th>
-                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">代码</th>
-                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">名称</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">连板</th>
-                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">行业</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">封单(亿)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {topBoards.map((stock: any, i: number) => (
-                          <tr key={stock.symbol} className="border-b border-border hover:bg-muted transition-colors">
-                            <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
-                            <td className="px-3 py-2 font-mono">{stock.symbol}</td>
-                            <td className="px-3 py-2">
-                              <button onClick={() => router.push(`/stock?symbol=${stock.symbol}`)} className="hover:text-primary transition-colors">
-                                {stock.name}
-                              </button>
-                            </td>
-                            <td className="px-3 py-2 text-right font-mono">
-                              <span className="text-up font-semibold">{stock.boards}</span>
-                            </td>
-                            <td className="px-3 py-2 text-muted-foreground">{stock.industry || '--'}</td>
-                            <td className="px-3 py-2 text-right font-mono">{stock.fengdan?.toFixed(2) || '--'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* V3: 市场宽度 + 主线识别 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <MarketBreadthCard />
-              <ThemeScoresCard />
-            </div>
-
-            {/* V3: 赚钱效应 + 综合健康分 + 数据质量 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <EarningEffectDashboard />
-              <MarketHealthCard />
-            </div>
-            <DataQualityDashboard />
-
-            {/* 板块资金流向 */}
-            {sectorFlow.length > 0 && (
-              <Card className="border-border rounded">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <Building className="w-4 h-4 text-muted-foreground" />
-                    <CardTitle className="text-sm">板块资金流向</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">#</th>
-                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">板块</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">涨跌幅</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">主力净流入</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sectorFlow.slice(0, 10).map((s: any, i: number) => (
-                          <tr key={i} className="border-b border-border hover:bg-muted transition-colors">
-                            <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
-                            <td className="px-3 py-2">{s['名称'] || '--'}</td>
-                            <td className={`px-3 py-2 text-right font-mono ${parseFloat(s['今日涨跌幅'] || 0) >= 0 ? 'text-up' : 'text-down'}`}>
-                              {s['今日涨跌幅'] ? `${parseFloat(s['今日涨跌幅']).toFixed(2)}%` : '--'}
-                            </td>
-                            <td className={`px-3 py-2 text-right font-mono ${parseFloat(s['主力净流入-净额'] || 0) >= 0 ? 'text-up' : 'text-down'}`}>
-                              {s['主力净流入-净额'] ? `${(parseFloat(s['主力净流入-净额']) / 1e8).toFixed(2)}亿` : '--'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+            ) : (
+              <div className="text-xs text-muted-foreground">暂无板块数据</div>
             )}
           </div>
-        )}
+
+        </div>
       </main>
     </div>
   )
 }
-
-
-

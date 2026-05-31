@@ -435,6 +435,8 @@ def market_review():
                 "similar_days": [],
                 "rag_enabled": False,
                 "is_degraded": True,
+                "data_date": mf.data_date,
+                "emotion": scores.emotion.to_dict(),
             }
 
         # AI 复盘
@@ -451,6 +453,8 @@ def market_review():
             "sector_rotation": review.get("sector", {}),
             "similar_days": review.get("similar_days", []),
             "rag_enabled": review.get("rag_enabled", False),
+            "data_date": mf.data_date,
+            "emotion": scores.emotion.to_dict(),
         }
     except Exception as e:
         return {"error": str(e)}

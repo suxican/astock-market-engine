@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from 'next'
-import { DM_Sans, JetBrains_Mono } from 'next/font/google'
+import { DM_Sans, JetBrains_Mono, Noto_Serif } from 'next/font/google'
 import './globals.css'
+import { ThemeProvider } from '@/components/theme-provider'
 import { SystemStatusProvider } from '@/components/SystemStatusProvider'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { cn } from '@/lib/utils'
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -18,8 +20,14 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ['400', '500', '600'],
 })
 
+const notoSerif = Noto_Serif({
+  subsets: ['latin'],
+  variable: '--font-serif',
+  display: 'swap',
+})
+
 export const viewport: Viewport = {
-  themeColor: '#09090B',
+  themeColor: '#0D0D0D',
   width: 'device-width',
   initialScale: 1,
 }
@@ -31,15 +39,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className="dark" style={{ colorScheme: 'dark' }}>
-      <body className={`${dmSans.variable} ${jetbrainsMono.variable} bg-[hsl(var(--bg-root))] text-foreground`}
-        style={{ fontFamily: "var(--font-sans), 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif" }}>
-        <div className="noise-overlay" />
-        <ErrorBoundary>
-          <SystemStatusProvider>
-            {children}
-          </SystemStatusProvider>
-        </ErrorBoundary>
+    <html lang="zh-CN" suppressHydrationWarning
+      className={cn('dark', dmSans.variable, jetbrainsMono.variable, notoSerif.variable)}>
+      <body className="font-sans">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <ErrorBoundary>
+            <SystemStatusProvider>
+              {children}
+            </SystemStatusProvider>
+          </ErrorBoundary>
+        </ThemeProvider>
       </body>
     </html>
   )

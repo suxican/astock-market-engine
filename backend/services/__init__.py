@@ -42,7 +42,7 @@ from .flow_data import (
 )
 
 # 涨跌停 + 龙虎榜
-from .limit_data import get_lhb_detail, get_limit_down_pool, get_limit_up_pool
+from .limit_data import get_data_date, get_lhb_detail, get_limit_down_pool, get_limit_up_pool
 
 # 盘面计算
 from .market_compute import get_all_limit_up_today, get_top_boards, get_zhaban_rate

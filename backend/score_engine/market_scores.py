@@ -47,6 +47,16 @@ class EmotionScores:
     signals: list[str] = field(default_factory=list)
     suggestion: str = ""
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "score": self.score,
+            "stage": self.stage,
+            "confidence": self.confidence,
+            "all_stage_scores": self.all_stage_scores,
+            "signals": self.signals,
+            "suggestion": self.suggestion,
+        }
+
 
 @dataclass
 class DragonIntensityScores:

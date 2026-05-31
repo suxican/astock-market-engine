@@ -108,3 +108,11 @@ export function useThemeScores() {
 export function useEventV2() {
   return useSWR(`${API_BASE}/api/analysis/event-v2`, fetcher, defaultOpts)
 }
+
+export function useEarningEffect() {
+  return useSWR(`${API_BASE}/api/analysis/earning-effect`, fetcher, defaultOpts)
+}
+
+export function useMarketHealth() {
+  return useSWR(`${API_BASE}/api/analysis/market-health`, fetcher, defaultOpts)
+}
