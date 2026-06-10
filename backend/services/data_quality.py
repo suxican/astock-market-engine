@@ -102,6 +102,18 @@ def classify_system_status(quality: DataQuality | None) -> str:
     return "realtime"
 
 
+def _record_quality_event(q: DataQuality):
+    """Best-effort quality monitor hook; never break data fetching."""
+    try:
+        from .quality_monitor import get_quality_monitor
+
+        success = q.is_valid() and not q.is_mock()
+        get_quality_monitor().record_source_call(q.source, success=success)
+        get_quality_monitor().record_snapshot(q)
+    except Exception:
+        pass
+
+
 # ── 标记函数 ──
 
 def tag_kline_df(
@@ -110,13 +122,14 @@ def tag_kline_df(
     fallback_used: bool = False,
 ) -> pd.DataFrame:
     """向 K-line DataFrame 添加数据质量元数据 (attrs)"""
-    if df is None or df.empty:
+    if df is None:
         return df
     q = DataQuality(
         source=source,
         realtime=True,
         fallback_used=fallback_used,
     )
+    _record_quality_event(q)
     df.attrs["_quality"] = q
     df.attrs["_source"] = source.value
     df.attrs["_confidence"] = q.confidence
@@ -136,5 +149,6 @@ def quality_dict(
         realtime=True,
         fallback_used=fallback_used,
     )
+    _record_quality_event(q)
     data["_quality"] = q.to_dict()
     return data

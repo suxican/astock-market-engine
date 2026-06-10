@@ -110,10 +110,25 @@ function extractEvidence(sections: Section[]): { text: string; tag: string }[] {
   return evidence.slice(0, 3)
 }
 
+function stripLeakedMarkup(text: string) {
+  return text
+    .replace(/(?:text-white\/\d+\s+)?font-semibold">/g, '')
+    .replace(/<\/?(?:strong|span)[^>]*>/g, '')
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function renderLine(line: string) {
-  return line
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white/90 font-semibold">$1</strong>')
-    .replace(/(\d+\.?\d*%?)/g, '<span class="font-semibold text-white/80 font-mono">$1</span>')
+  return escapeHtml(stripLeakedMarkup(line))
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="analysis-strong">$1</strong>')
+    .replace(/(\d+\.?\d*%?)/g, '<span class="analysis-number">$1</span>')
 }
 
 // ── 配置 ──
@@ -154,12 +169,12 @@ function useStagger(count: number, delay = 50) {
 // ── 主组件 ──
 
 export default function AnalysisView({ text: rawText }: AnalysisViewProps) {
-  const text = typeof rawText === 'string' ? rawText : String(rawText ?? '')
+  const text = stripLeakedMarkup(typeof rawText === 'string' ? rawText : String(rawText ?? ''))
   const sections = parseSections(text)
   const stagger = useStagger(12, 60)
 
   if (sections.length === 0) {
-    return <div className="text-xs text-white/30 leading-relaxed whitespace-pre-wrap">{text}</div>
+    return <div className="analysis-readable text-[13px] text-white/75 leading-7 whitespace-pre-wrap">{text}</div>
   }
 
   const oneLiner = extractOneLiner(sections)
@@ -171,7 +186,7 @@ export default function AnalysisView({ text: rawText }: AnalysisViewProps) {
   const risk = RISK_CONFIG[riskLevel]
 
   return (
-    <div className="space-y-4">
+    <div className="analysis-readable space-y-4">
 
       {/* ═══ 信号矩阵 ═══ */}
       {metrics.length > 0 && (
@@ -240,26 +255,25 @@ export default function AnalysisView({ text: rawText }: AnalysisViewProps) {
 
       {/* ═══ 证据链 ═══ */}
       {evidence.length > 0 && (
-        <div {...stagger(3)} className="rounded-xl border border-white/[0.06] p-5"
+        <div {...stagger(3)} className="analysis-evidence rounded-xl border border-white/[0.08] p-5"
           style={{ background: 'rgba(12,12,20,0.6)' }}>
           <div className="flex items-center gap-2 mb-4">
-            <Radio className="w-3.5 h-3.5 text-violet-400/40" />
+            <Radio className="w-3.5 h-3.5 text-violet-300/80" />
             <span className="text-[10px] font-bold text-violet-400/40 uppercase tracking-[0.2em]">证据链</span>
           </div>
           <div className="space-y-3">
             {evidence.map((ev, i) => (
               <div key={i} className="flex items-start gap-4 group">
                 <div className="flex flex-col items-center">
-                  <div className="w-6 h-6 rounded-full border border-white/[0.06] flex items-center justify-center
-                    text-[10px] font-mono text-white/20 group-hover:border-violet-500/20 transition-colors">
+                  <div className="w-6 h-6 rounded-full border border-white/[0.14] flex items-center justify-center
+                    text-[10px] font-mono text-white/70 group-hover:border-violet-500/35 transition-colors">
                     {i + 1}
                   </div>
-                  {i < evidence.length - 1 && <div className="w-px h-3 bg-white/[0.04] mt-1" />}
+                  {i < evidence.length - 1 && <div className="w-px h-3 bg-white/[0.12] mt-1" />}
                 </div>
                 <div className="flex-1 flex items-start gap-3 pt-0.5">
-                  <span className="text-[11px] text-white/40 leading-relaxed flex-1">{ev.text}</span>
-                  <span className="shrink-0 px-2 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider
-                    border border-violet-500/10 text-violet-300/30 bg-violet-500/[0.04]">
+                  <span className="analysis-evidence-text flex-1">{ev.text}</span>
+                  <span className="analysis-evidence-tag shrink-0 px-2 py-0.5 rounded font-semibold uppercase tracking-wider">
                     {ev.tag}
                   </span>
                 </div>

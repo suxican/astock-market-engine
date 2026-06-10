@@ -115,3 +115,63 @@
   50% { opacity: 0.4; }
 }
 .animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+
+/* Stock analysis readability overrides */
+.analysis-readable {
+  color: hsl(0 0% 88%);
+}
+
+.analysis-readable p,
+.analysis-readable li {
+  color: hsl(0 0% 82%) !important;
+  font-size: 13px !important;
+  line-height: 1.75 !important;
+}
+
+.analysis-readable [class*="text-[11px]"],
+.analysis-readable [class*="text-xs"] {
+  font-size: 13px !important;
+}
+
+.analysis-readable [class*="text-[10px]"] {
+  font-size: 11px !important;
+}
+
+.analysis-readable details summary {
+  border-color: hsl(0 0% 100% / 0.08) !important;
+  background: hsl(240 15% 8% / 0.82) !important;
+}
+
+.analysis-readable details summary > span {
+  color: hsl(0 0% 86%) !important;
+}
+
+.analysis-readable .analysis-strong,
+.analysis-readable strong,
+.analysis-readable .analysis-number {
+  color: hsl(0 0% 96%) !important;
+  font-weight: 700;
+}
+
+.analysis-readable .analysis-number {
+  font-family: var(--font-mono), 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-readable .analysis-evidence {
+  background: hsl(240 15% 8% / 0.74) !important;
+}
+
+.analysis-readable .analysis-evidence-text {
+  color: hsl(0 0% 84%) !important;
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  font-weight: 500;
+}
+
+.analysis-readable .analysis-evidence-tag {
+  border: 1px solid hsl(260 90% 72% / 0.28);
+  background: hsl(260 90% 72% / 0.1);
+  color: hsl(255 100% 88% / 0.92);
+  font-size: 10px !important;
+}

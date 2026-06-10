@@ -81,7 +81,7 @@ def keyword_to_stocks(keyword: str) -> list[str]:
 def get_hot_sectors_from_flow() -> list[dict]:
     """从实时板块资金流向获取当前热门板块"""
     try:
-        df = get_sector_fund_flow_by_type("概念资金流向")
+        df = get_sector_fund_flow_by_type("概念资金流")
         if df is None or df.empty:
             return []
         results = []

@@ -20,7 +20,11 @@ logging.basicConfig(
 logger = logging.getLogger("astock")
 
 # ── 速率限制 ──
-limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["120/minute"],
+    config_filename="",
+)
 
 
 @asynccontextmanager
