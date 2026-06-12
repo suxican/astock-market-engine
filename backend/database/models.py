@@ -54,6 +54,29 @@ class ReviewRecord(Base):
     )
 
 
+class StockAnalysisRecord(Base):
+    """Stock analysis history record."""
+    __tablename__ = "stock_analysis_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    symbol = Column(String(10), nullable=False, index=True)
+    name = Column(String(50), default="")
+    stage = Column(String(20), default="")
+    analysis_type = Column(String(30), default="comprehensive")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    summary_json = Column(JSON, nullable=True)
+    scores_json = Column(JSON, nullable=True)
+    analysis_json = Column(JSON, nullable=True)
+    analysis_text = Column(Text, default="")
+    is_mock_data = Column(Integer, default=0)
+    is_degraded = Column(Integer, default=0)
+
+    __table_args__ = (
+        Index("idx_stock_analysis_symbol", "symbol"),
+        Index("idx_stock_analysis_created", "created_at"),
+    )
+
+
 class User(Base):
     """用户账户 (V3: 增加角色和偏好)"""
     __tablename__ = "users"

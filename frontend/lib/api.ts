@@ -43,6 +43,38 @@ export const api = {
     })
   },
 
+  getStockAnalysisHistory(limit = 50): Promise<{
+    records: Array<{
+      id: number
+      symbol: string
+      name: string
+      stage: string
+      analysis_type: string
+      created_at: string
+      is_mock_data: boolean
+      is_degraded: boolean
+    }>
+    total: number
+  }> {
+    return fetchJSON(`/api/analysis/stock/history?limit=${limit}`)
+  },
+
+  getStockAnalysisHistoryDetail(id: string | number): Promise<{
+    id: number
+    symbol: string
+    name: string
+    stage: string
+    analysis_type: string
+    created_at: string
+    summary: Record<string, any>
+    scores: StockScores | null
+    analysis: string | Record<string, any>
+    is_mock_data: boolean
+    is_degraded: boolean
+  }> {
+    return fetchJSON(`/api/analysis/stock/history/${id}`)
+  },
+
   getMarketReview(): Promise<{
     market_scores: MarketScores
     limit_up_count: number

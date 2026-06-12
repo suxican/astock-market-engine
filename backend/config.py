@@ -3,7 +3,7 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(encoding="utf-8")
 
 # ── AI API ──
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")

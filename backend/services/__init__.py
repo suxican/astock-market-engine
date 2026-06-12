@@ -39,6 +39,7 @@ from .flow_data import (
     get_sector_fund_flow,
     get_sector_fund_flow_by_type,
     get_stock_fund_flow,
+    get_stock_fund_flow_history,
 )
 
 # 涨跌停 + 龙虎榜
@@ -61,3 +62,6 @@ from .quote_data import (
 
 # 市场宽度
 from .market_breadth import MarketBreadth, compute_market_breadth
+
+# 信号源
+from .signal_data import get_ths_hotspot

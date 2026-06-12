@@ -48,6 +48,8 @@ export interface MainCapitalScores {
   all_stage_scores: Record<string, number>
   factors: string[]
   advice: string
+  risk_flags?: string[]
+  evidence?: Record<string, unknown>
 }
 
 export interface TechnicalScores {

@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, TrendingUp, TrendingDown, Activity, BarChart3, BookOpen, LineChart, Layers, Flame, Loader2 } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, Activity, BarChart3, BookOpen, LineChart, Layers, Flame, Loader2, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { API_BASE } from '@/lib/api'
 import { useSystemStatus } from '@/components/SystemStatusProvider'
 
-const QUICK = ['600519', '000858', '300750', '002594', '601012', '000333']
+const DEFAULT_RECENT_CODES = ['600519', '000858', '300750', '002594', '601012']
+const RECENT_CODES_KEY = 'astock.recentStockCodes'
 
 const NAV = [
   { href: '/market', label: '大盘', icon: LineChart },
@@ -19,6 +20,7 @@ const NAV = [
 
 export default function HomePage() {
   const [symbol, setSymbol] = useState('')
+  const [recentCodes, setRecentCodes] = useState<string[]>(DEFAULT_RECENT_CODES)
   const router = useRouter()
   const { isMock } = useSystemStatus()
 
@@ -27,10 +29,37 @@ export default function HomePage() {
     fetch(`${API_BASE}/api/analysis/market-scores`).then(r => r.json()).then(setSnap).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(RECENT_CODES_KEY)
+      if (!stored) return
+      const codes = JSON.parse(stored)
+      if (Array.isArray(codes)) {
+        setRecentCodes(codes.filter(code => typeof code === 'string' && /^\d{6}$/.test(code)).slice(0, 5))
+      }
+    } catch {}
+  }, [])
+
+  const rememberCode = (value: string) => {
+    const code = value.trim()
+    if (!/^\d{6}$/.test(code)) return
+    const next = [code, ...recentCodes.filter(item => item !== code)].slice(0, 5)
+    setRecentCodes(next)
+    try {
+      window.localStorage.setItem(RECENT_CODES_KEY, JSON.stringify(next))
+    } catch {}
+  }
+
+  const openStock = (value: string) => {
+    const code = value.trim()
+    if (!code) return
+    rememberCode(code)
+    router.push(`/stock?code=${code}`)
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!symbol.trim()) return
-    router.push(`/stock?code=${symbol.trim()}`)
+    openStock(symbol)
   }
 
   const emotion = snap?.emotion
@@ -68,7 +97,8 @@ export default function HomePage() {
         </div>
 
         {/* 搜索框 */}
-        <form onSubmit={handleSubmit} className="max-w-xl mx-auto mb-10">
+        <div className="mx-auto mb-10 flex max-w-3xl flex-col gap-3 md:flex-row md:items-start">
+        <form onSubmit={handleSubmit} className="flex-1">
           <div className="flex items-center rounded-lg border border-border bg-card overflow-hidden
             focus-within:ring-2 focus-within:ring-primary/30 transition-all">
             <Search className="ml-4 w-4 h-4 text-muted-foreground shrink-0" />
@@ -83,8 +113,8 @@ export default function HomePage() {
             </Button>
           </div>
           <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
-            {QUICK.map(code => (
-              <button key={code} onClick={() => router.push(`/stock?code=${code}`)}
+            {recentCodes.map(code => (
+              <button type="button" key={code} onClick={() => openStock(code)}
                 className="px-2 py-0.5 rounded text-[10px] text-muted-foreground font-mono
                   hover:text-foreground hover:bg-secondary transition-all">
                 {code}
@@ -92,6 +122,16 @@ export default function HomePage() {
             ))}
           </div>
         </form>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 min-w-32 justify-center border-primary/35 text-primary hover:bg-primary/10"
+            onClick={() => router.push('/stock/history')}
+          >
+            <History className="w-4 h-4" />
+            历史记录
+          </Button>
+        </div>
 
         {/* 市场快照 — 三栏数据卡 */}
         <div className="grid grid-cols-3 gap-3 mb-10">

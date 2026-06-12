@@ -16,6 +16,8 @@ class MainCapitalScoresResponse(BaseModel):
     all_stage_scores: dict[str, float] = Field(default_factory=dict, description="四阶段匹配分")
     factors: list[str] = Field(default_factory=list, description="判断依据")
     advice: str = Field("", description="操作建议")
+    risk_flags: list[str] = Field(default_factory=list, description="风险/冲突信号")
+    evidence: dict = Field(default_factory=dict, description="供 AI 仲裁和前端复核的结构化证据")
 
 
 class TechnicalScoresResponse(BaseModel):

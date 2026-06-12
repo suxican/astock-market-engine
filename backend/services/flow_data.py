@@ -8,6 +8,7 @@ import pandas as pd
 from ._cache import _cache_get, _cache_set
 from ._helpers import _try_akshare
 from .data_quality import DataSource, quality_dict, tag_kline_df
+from .enhanced_sources import fetch_eastmoney_stock_fund_flow, fetch_sector_fund_flow_em
 
 
 SECTOR_TYPE_ALIASES = {
@@ -47,6 +48,22 @@ def _empty_fund_flow(symbol: str, source: DataSource = DataSource.DEFAULT) -> di
 
 def get_stock_fund_flow(symbol: str) -> dict[str, Any]:
     """获取个股资金流向（大单/小单净流入）"""
+    df = fetch_eastmoney_stock_fund_flow(symbol)
+    if df is not None and not df.empty:
+        try:
+            latest = df.iloc[-1]
+            return quality_dict({
+                "date": str(latest.get("日期", "")),
+                "主力净流入": float(latest.get("主力净流入-净额", 0)),
+                "小单净流入": float(latest.get("小单净流入-净额", 0)),
+                "中单净流入": float(latest.get("中单净流入-净额", 0)),
+                "大单净流入": float(latest.get("大单净流入-净额", 0)),
+                "超大单净流入": float(latest.get("超大单净流入-净额", 0)),
+                "data_available": True,
+            }, DataSource.CURL_EASTMONEY)
+        except Exception:
+            pass
+
     df = _try_akshare(
         ak.stock_individual_fund_flow,
         None,
@@ -58,16 +75,43 @@ def get_stock_fund_flow(symbol: str) -> dict[str, Any]:
     try:
         latest = df.iloc[-1]
         return quality_dict({
-            "date": str(latest.iloc[0]),
-            "主力净流入": float(latest.iloc[1]),
-            "小单净流入": float(latest.iloc[2]) if len(latest) > 2 else 0,
-            "中单净流入": float(latest.iloc[3]) if len(latest) > 3 else 0,
-            "大单净流入": float(latest.iloc[4]) if len(latest) > 4 else 0,
-            "超大单净流入": float(latest.iloc[5]) if len(latest) > 5 else 0,
+            "date": str(latest.get("日期", latest.iloc[0])),
+            "主力净流入": float(latest.get("主力净流入-净额", 0)),
+            "小单净流入": float(latest.get("小单净流入-净额", 0)),
+            "中单净流入": float(latest.get("中单净流入-净额", 0)),
+            "大单净流入": float(latest.get("大单净流入-净额", 0)),
+            "超大单净流入": float(latest.get("超大单净流入-净额", 0)),
             "data_available": True,
         }, DataSource.AKSHARE)
     except Exception:
         return _empty_fund_flow(symbol)
+
+
+def get_stock_fund_flow_history(symbol: str, days: int = 20) -> pd.DataFrame:
+    """获取个股资金流向历史，用于判断 3/5/10 日资金连续性。
+
+    返回空表表示资金流不可用；上层评分会自动降权，不阻断行情分析。
+    """
+    df = fetch_eastmoney_stock_fund_flow(symbol)
+    source = DataSource.CURL_EASTMONEY if df is not None and not df.empty else DataSource.DEFAULT
+
+    if df is None or df.empty:
+        df = _try_akshare(
+            ak.stock_individual_fund_flow,
+            pd.DataFrame(),
+            stock=symbol,
+            market="sh" if symbol.startswith("6") else "sz",
+        )
+        source = DataSource.AKSHARE if df is not None and not df.empty else DataSource.DEFAULT
+
+    if df is None or df.empty:
+        return tag_kline_df(pd.DataFrame(), DataSource.DEFAULT, fallback_used=True)
+
+    df = df.copy().tail(max(days, 1))
+    for col in df.columns:
+        if col != "日期":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return tag_kline_df(df, source, fallback_used=source != DataSource.CURL_EASTMONEY)
 
 
 def _normalize_sector_type(sector_type: str) -> str:
@@ -76,6 +120,10 @@ def _normalize_sector_type(sector_type: str) -> str:
 
 def _fetch_sector_fund_flow_curl(sector_type: str) -> pd.DataFrame:
     """用 curl_cffi 直连东财板块资金接口，作为 akshare requests 失败时的兜底。"""
+    df = fetch_sector_fund_flow_em(sector_type)
+    if df is not None and not df.empty:
+        return df
+
     try:
         from curl_cffi import requests as curl_requests
     except Exception:

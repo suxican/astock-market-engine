@@ -16,6 +16,7 @@ from backend.services import (
     get_stock_daily,
     get_stock_fund_flow,
     get_stock_name,
+    get_ths_hotspot,
 )
 
 router = APIRouter(prefix="/api/stock", tags=["股票数据"])
@@ -101,6 +102,24 @@ def sector_fund_flow():
     if df.empty:
         return {"sectors": []}
     return {"sectors": df.head(20).to_dict(orient="records")}
+
+
+@router.get("/hotspot")
+def ths_hotspot():
+    """获取同花顺热点/强势股"""
+    df = get_ths_hotspot()
+    quality = df.attrs.get("_quality") if hasattr(df, "attrs") else None
+    if df.empty:
+        return {
+            "count": 0,
+            "items": [],
+            "_quality": quality.to_dict() if quality else None,
+        }
+    return {
+        "count": len(df),
+        "items": df.head(50).to_dict(orient="records"),
+        "_quality": quality.to_dict() if quality else None,
+    }
 
 
 @router.get("/lhb/{date}")

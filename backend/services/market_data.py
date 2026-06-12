@@ -1,6 +1,6 @@
 """个股日K 行情数据 + 股票名称查询
 
-数据源优先级: 新浪财经 → 腾讯财经 → curl_cffi(东财) → akshare → 模拟
+数据源优先级: mootdx → 新浪财经 → 腾讯财经 → curl_cffi(东财) → akshare → 模拟
 """
 import json
 import logging
@@ -12,6 +12,7 @@ import pandas as pd
 
 from ._helpers import _generate_mock_data, _try_akshare
 from .data_quality import DataSource, tag_kline_df
+from .enhanced_sources import fetch_mootdx_daily
 
 logger = logging.getLogger("market_engine.data")
 
@@ -220,28 +221,33 @@ def get_stock_daily(
 ) -> pd.DataFrame:
     """获取个股日K行情数据
 
-    优先级: 新浪财经 → 腾讯财经 → curl_cffi(东财) → akshare → 模拟
+    优先级: mootdx → 新浪财经 → 腾讯财经 → curl_cffi(东财) → akshare → 模拟
     """
     start = start_date or (datetime.now() - timedelta(days=365)).strftime("%Y%m%d")
     end = end_date or datetime.now().strftime("%Y%m%d")
 
     df = pd.DataFrame()
 
-    # 1) 新浪财经 HTTP (实测可用, 无封IP风险)
-    df = _fetch_stock_daily_sina(symbol, start_date=start, end_date=end)
-    source_tag = (DataSource.SINA, False)
+    # 1) 通达信 TCP / mootdx（可选依赖，失败自动降级）
+    df = fetch_mootdx_daily(symbol, start_date=start, end_date=end)
+    source_tag = (DataSource.MOOTDX, False)
 
-    # 2) 腾讯财经 HTTP
+    # 2) 新浪财经 HTTP (实测可用, 无封IP风险)
+    if df is None or df.empty:
+        df = _fetch_stock_daily_sina(symbol, start_date=start, end_date=end)
+        source_tag = (DataSource.SINA, True)
+
+    # 3) 腾讯财经 HTTP
     if df is None or df.empty:
         df = _fetch_stock_daily_tencent(symbol, start_date=start, end_date=end)
         source_tag = (DataSource.TENCENT, True)
 
-    # 3) curl_cffi 东财
+    # 4) curl_cffi 东财
     if df is None or df.empty:
         df = _fetch_stock_daily_curl(symbol, period="daily", start_date=start, end_date=end, adjust="qfq")
         source_tag = (DataSource.CURL_EASTMONEY, True)
 
-    # 4) akshare
+    # 5) akshare
     if df is None or df.empty:
         df = _try_akshare(
             ak.stock_zh_a_hist, None,
@@ -250,7 +256,7 @@ def get_stock_daily(
         )
         source_tag = (DataSource.AKSHARE, True)
 
-    # 5) 全部失败，使用模拟数据
+    # 6) 全部失败，使用模拟数据
     if df is None or df.empty:
         df = _generate_mock_data(symbol, days=120)
         source_tag = (DataSource.MOCK, True)

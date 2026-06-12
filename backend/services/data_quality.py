@@ -13,9 +13,11 @@ import pandas as pd
 
 class DataSource(str, Enum):
     """数据来源枚举，按可信度降序排列"""
+    MOOTDX = "mootdx"                 # 通达信 TCP (K线/盘口/财务/F10)
     SINA = "sina"                     # 新浪财经 HTTP (实测可用)
     TENCENT = "tencent"               # 腾讯财经 HTTP (实测可用)
     CURL_EASTMONEY = "curl_eastmoney"  # curl_cffi 东财
+    THS = "ths"                       # 同花顺热点/信号
     AKSHARE = "akshare"               # akshare 库
     CACHE = "cache"                   # TTL 缓存数据
     MOCK = "mock"                     # 模拟数据
@@ -24,9 +26,11 @@ class DataSource(str, Enum):
 
 # 各来源基础置信度
 SOURCE_CONFIDENCE: dict[DataSource, float] = {
+    DataSource.MOOTDX: 0.96,
     DataSource.SINA: 0.95,
     DataSource.TENCENT: 0.90,
     DataSource.CURL_EASTMONEY: 0.80,
+    DataSource.THS: 0.82,
     DataSource.AKSHARE: 0.70,
     DataSource.CACHE: 0.50,
     DataSource.MOCK: 0.15,

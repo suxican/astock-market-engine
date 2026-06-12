@@ -1,7 +1,7 @@
 """实时行情快照 + 大盘概况
 
 数据源: 腾讯财经 HTTP (qt.gtimg.cn) — 免费、零封IP风险
-降级: akshare stock_zh_a_spot_em → 默认值
+降级: mootdx → akshare stock_zh_a_spot_em → 默认值
 """
 import json
 import logging
@@ -14,6 +14,7 @@ import pandas as pd
 from ._cache import _cache_get, _cache_set
 from ._helpers import _try_akshare
 from .data_quality import DataSource, quality_dict
+from .enhanced_sources import fetch_mootdx_quotes
 
 logger = logging.getLogger("market_engine.quote")
 
@@ -120,10 +121,14 @@ def _row_to_quote(row) -> dict[str, Any]:
 # ── 实时行情接口 ──────────────────────────────────────────────────────────
 
 def get_realtime_quote(symbol: str) -> dict[str, Any]:
-    """获取单只实时行情 — 优先腾讯财经, 降级 akshare"""
+    """获取单只实时行情 — 优先腾讯财经, 降级 mootdx / akshare"""
     result = _fetch_tencent_quotes([symbol])
     if result and symbol in result:
         return quality_dict(result[symbol], DataSource.TENCENT)
+
+    result = fetch_mootdx_quotes([symbol])
+    if result and symbol in result:
+        return quality_dict(result[symbol], DataSource.MOOTDX, fallback_used=True)
 
     df = _get_spot_em_df()
     if df is not None:
@@ -137,12 +142,14 @@ def get_realtime_quote(symbol: str) -> dict[str, Any]:
 
 
 def get_realtime_quote_map(symbols: list[str] | None = None) -> dict[str, dict[str, Any]]:
-    """批量获取实时行情 — 优先腾讯财经, 降级 akshare"""
+    """批量获取实时行情 — 优先腾讯财经, 降级 mootdx / akshare"""
     if symbols and len(symbols) <= 50:
         quotes = _fetch_tencent_quotes(symbols)
         if quotes:
             return {k: quality_dict(v, DataSource.TENCENT) for k, v in quotes.items()}
-        return {}
+        quotes = fetch_mootdx_quotes(symbols)
+        if quotes:
+            return {k: quality_dict(v, DataSource.MOOTDX, fallback_used=True) for k, v in quotes.items()}
 
     df = _get_spot_em_df()
     if df is None:

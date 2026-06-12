@@ -18,7 +18,13 @@ from backend.services import (
     set_system_quality,
 )
 from backend.services.analysis_service import _local_rule_analysis, analyze_stock, degraded_analysis
-from backend.services.db_service import get_review_history, get_snapshot_by_date
+from backend.services.db_service import (
+    get_review_history,
+    get_snapshot_by_date,
+    get_stock_analysis_history,
+    get_stock_analysis_record,
+    save_stock_analysis_record,
+)
 from dragon_leader_engine import DragonLeaderAgent
 from limit_down_analysis import LimitDownAgent
 from limit_up_analysis import LimitUpAgent
@@ -159,6 +165,16 @@ def stock_analysis(query: AnalysisQuery):
             confidence=quality.confidence if quality else 0.0,
             realtime=quality.realtime if quality else False,
         )
+        save_stock_analysis_record(
+            symbol=symbol,
+            name=stock_name,
+            summary=summary,
+            analysis=analysis_text,
+            scores=None,
+            analysis_type=query.analysis_type,
+            is_mock_data=True,
+            is_degraded=True,
+        )
         return {
             "summary": summary,
             "analysis": analysis_text,
@@ -197,13 +213,25 @@ def stock_analysis(query: AnalysisQuery):
         v8_scores=structured_scores,
     )
 
+    is_mock_data = quality.is_mock() if quality else False
+    save_stock_analysis_record(
+        symbol=symbol,
+        name=stock_name,
+        summary=summary,
+        analysis=result,
+        scores=structured_scores,
+        analysis_type=query.analysis_type,
+        is_mock_data=is_mock_data,
+        is_degraded=False,
+    )
+
     return {
         "summary": summary,
         "analysis": result,
         "structured_scores": structured_scores,
         "data_points": len(recent),
         "kline_data": recent.to_dict(orient="records"),
-        "is_mock_data": quality.is_mock() if quality else False,
+        "is_mock_data": is_mock_data,
         "is_degraded": False,
         "quality": quality.to_dict() if quality else None,
     }
@@ -272,6 +300,16 @@ def local_analysis(query: AnalysisQuery):
             source=quality.source.value, confidence=quality.confidence,
             realtime=quality.realtime,
         )
+        save_stock_analysis_record(
+            symbol=symbol,
+            name=stock_name,
+            summary=summary,
+            analysis=analysis_text,
+            scores=None,
+            analysis_type=query.analysis_type,
+            is_mock_data=True,
+            is_degraded=True,
+        )
         return {
             "summary": summary,
             "symbol": symbol,
@@ -285,6 +323,27 @@ def local_analysis(query: AnalysisQuery):
 
     pop_mock_used()  # 清掉旧全局标记，避免泄露
 
+    structured_scores = None
+    try:
+        from backend.feature_engine import StockFeatures
+        from backend.score_engine import compute_stock_scores
+        sf = StockFeatures.compute(symbol)
+        structured_scores = compute_stock_scores(sf).to_dict()
+    except Exception:
+        pass
+
+    is_mock_data = quality.is_mock() if quality else False
+    save_stock_analysis_record(
+        symbol=symbol,
+        name=stock_name,
+        summary=summary,
+        analysis=result,
+        scores=structured_scores,
+        analysis_type=query.analysis_type,
+        is_mock_data=is_mock_data,
+        is_degraded=False,
+    )
+
     return {
         "summary": summary,
         "symbol": symbol,
@@ -292,7 +351,7 @@ def local_analysis(query: AnalysisQuery):
         "analysis": result,
         "data_points": len(recent),
         "kline_data": recent.to_dict(orient="records"),
-        "is_mock_data": quality.is_mock() if quality else False,
+        "is_mock_data": is_mock_data,
         "is_degraded": False,
     }
 
@@ -607,6 +666,22 @@ def events_linked_stocks():
 
 
 # ===== V7 RAG 端点 =====
+
+@router.get("/stock/history")
+def stock_analysis_history(limit: int = 50):
+    """Get recent stock analysis history."""
+    records = get_stock_analysis_history(limit=limit)
+    return {"records": records, "total": len(records)}
+
+
+@router.get("/stock/history/{record_id}")
+def stock_analysis_history_detail(record_id: int):
+    """Get one stock analysis history detail."""
+    record = get_stock_analysis_record(record_id)
+    if not record:
+        raise HTTPException(404, "analysis history record not found")
+    return record
+
 
 @router.get("/rag/history")
 def rag_history(limit: int = 30):
